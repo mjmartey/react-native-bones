@@ -2,6 +2,7 @@ import { createContext, type RefObject, useContext } from "react";
 import type { ViewInstance } from "react-native";
 import type { SharedValue } from "react-native-reanimated";
 import type { BoneShape } from "./types";
+import type { RevealDelays } from "./utils/reveal-order";
 
 export type SkeletonContextValue = {
 	/** True while loading: primitives hide their content and report shapes. */
@@ -15,6 +16,8 @@ export type SkeletonContextValue = {
 	setShapes: (id: string, shapes: readonly BoneShape[] | null) => void;
 	/** Milliseconds into the current reveal; every piece fades from it. */
 	revealClock: SharedValue<number>;
+	/** When each piece (by id) starts its reveal, in ms. Missing means 0. */
+	revealDelays: RevealDelays;
 };
 
 /**

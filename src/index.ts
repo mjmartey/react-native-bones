@@ -6,6 +6,7 @@ export type {
 	BonesAnimation,
 	BonesColors,
 	BonesProviderProps,
+	BonesReveal,
 	BonesTheme,
 	BonesThemeInput,
 	SkeletonProps,

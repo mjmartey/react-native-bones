@@ -31,3 +31,6 @@ export const SHOW_DELAY = 150;
 
 /** How long the bars take to fade out over the real content. */
 export const REVEAL_DURATION = 250;
+
+/** Extra time the last piece waits in `sequence` and `sweep` reveals. */
+export const REVEAL_SPREAD = 350;

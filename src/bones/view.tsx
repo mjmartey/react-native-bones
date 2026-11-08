@@ -29,7 +29,7 @@ function SkeletonView({
 	const { measuring, rootRef, layoutVersion, radius, setShapes } = skeleton;
 	const id = useId();
 	const ref = useRef<HostInstance>(null);
-	const revealStyle = useRevealStyle(skeleton);
+	const revealStyle = useRevealStyle(skeleton, id);
 
 	function measure() {
 		const node = ref.current;

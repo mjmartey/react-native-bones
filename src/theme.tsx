@@ -7,6 +7,7 @@ const DEFAULT_THEME: BonesTheme = {
 	colors: DEFAULT_COLORS.light,
 	radius: DEFAULT_RADIUS,
 	animation: "shimmer",
+	reveal: "together",
 };
 
 /**
@@ -15,10 +16,11 @@ const DEFAULT_THEME: BonesTheme = {
  */
 const ThemeContext = createContext<BonesTheme | null>(null);
 
-/** Sets colours, radius, animation and light/dark for every skeleton inside. */
+/** Sets colours, radius, animation, light/dark and reveal for every skeleton inside. */
 export function BonesProvider({
 	theme,
 	mode = "system",
+	reveal = "together",
 	children,
 }: BonesProviderProps) {
 	const systemScheme = useColorScheme();
@@ -30,8 +32,9 @@ export function BonesProvider({
 			colors: { ...DEFAULT_COLORS[scheme], ...theme?.[scheme] },
 			radius: theme?.radius ?? DEFAULT_RADIUS,
 			animation: theme?.animation ?? "shimmer",
+			reveal,
 		}),
-		[scheme, theme],
+		[scheme, theme, reveal],
 	);
 
 	return <ThemeContext value={value}>{children}</ThemeContext>;

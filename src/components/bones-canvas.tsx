@@ -17,6 +17,7 @@ import { pieceProgress } from "../animation/reveal";
 import { SHIMMER_BAND } from "../constants";
 import type { ShapeMap } from "../skeleton";
 import type { BoneShape, BonesTheme } from "../types";
+import type { RevealDelays } from "../utils/reveal-order";
 
 /** Lowest opacity of the pulse animation (it breathes between this and 1). */
 const PULSE_MIN_OPACITY = 0.5;
@@ -33,12 +34,14 @@ export default function BonesCanvas({
 	groups,
 	fading,
 	revealClock,
+	revealDelays,
 	originX,
 	theme,
 }: Readonly<{
 	groups: ShapeMap;
 	fading: boolean;
 	revealClock: SharedValue<number>;
+	revealDelays: RevealDelays;
 	originX: number;
 	theme: BonesTheme;
 }>) {
@@ -88,6 +91,7 @@ export default function BonesCanvas({
 						}
 						fading={fading}
 						revealClock={revealClock}
+						delay={revealDelays[id] ?? 0}
 					/>
 				))}
 			</Group>
@@ -102,6 +106,7 @@ function BoneGroup({
 	gradient,
 	fading,
 	revealClock,
+	delay,
 }: Readonly<{
 	shapes: readonly BoneShape[];
 	color: string;
@@ -112,6 +117,7 @@ function BoneGroup({
 	} | null;
 	fading: boolean;
 	revealClock: SharedValue<number>;
+	delay: number;
 }>) {
 	const path = useMemo(() => {
 		const builder = Skia.PathBuilder.Make();
@@ -129,8 +135,8 @@ function BoneGroup({
 
 	const opacity = useDerivedValue(() => {
 		"worklet";
-		return fading ? 1 - pieceProgress(revealClock.get(), 0) : 1;
-	}, [fading, revealClock]);
+		return fading ? 1 - pieceProgress(revealClock.get(), delay) : 1;
+	}, [fading, revealClock, delay]);
 
 	return (
 		<Path path={path} color={color} opacity={opacity}>

@@ -40,15 +40,26 @@ export type BonesThemeInput = {
 };
 
 /** The resolved theme a skeleton draws with. */
+/**
+ * How content replaces its skeleton.
+ * - `together`: every piece crossfades at once.
+ * - `sequence`: pieces come in top to bottom.
+ * - `sweep`: pieces come in left to right across the screen.
+ */
+export type BonesReveal = "together" | "sequence" | "sweep";
+
 export type BonesTheme = {
 	colors: BonesColors;
 	radius: number;
 	animation: BonesAnimation;
+	reveal: BonesReveal;
 };
 
 export type BonesProviderProps = {
 	theme?: BonesThemeInput;
 	/** `system` follows the phone's light/dark setting. Defaults to `system`. */
 	mode?: "light" | "dark" | "system";
+	/** How content replaces its skeleton. Defaults to `together`. */
+	reveal?: BonesReveal;
 	children: ReactNode;
 };

@@ -11,6 +11,7 @@ import {
 	Bones,
 	type BonesAnimation,
 	BonesProvider,
+	type BonesReveal,
 	Skeleton,
 } from "react-native-bones";
 
@@ -58,6 +59,8 @@ function useFakeFetch<T>(value: T, delay: number) {
 // Fake network speeds: a cache hit, a fast network, a slow one.
 const DELAYS = [100, 500, 2000];
 
+const REVEALS: BonesReveal[] = ["together", "sequence", "sweep"];
+
 const ANIMATIONS: BonesAnimation[] = ["shimmer", "pulse", "none"];
 
 export default function App() {
@@ -66,10 +69,15 @@ export default function App() {
 	const [delay, setDelay] = useState(2000);
 	const [animation, setAnimation] = useState<BonesAnimation>("shimmer");
 	const [dark, setDark] = useState(false);
+	const [reveal, setReveal] = useState<BonesReveal>("together");
 	const c = dark ? DARK : LIGHT;
 
 	return (
-		<BonesProvider theme={{ animation }} mode={dark ? "dark" : "light"}>
+		<BonesProvider
+			theme={{ animation }}
+			mode={dark ? "dark" : "light"}
+			reveal={reveal}
+		>
 			<ScrollView
 				contentContainerStyle={[styles.screen, { backgroundColor: c.screen }]}
 			>
@@ -136,6 +144,29 @@ export default function App() {
 								style={[
 									styles.segmentText,
 									{ color: animation === name ? "white" : c.text },
+								]}
+							>
+								{name}
+							</Text>
+						</Pressable>
+					))}
+				</View>
+
+				<View style={styles.segments}>
+					{REVEALS.map((name) => (
+						<Pressable
+							key={name}
+							onPress={() => setReveal(name)}
+							style={[
+								styles.segment,
+								{ borderColor: c.border },
+								reveal === name && styles.segmentActive,
+							]}
+						>
+							<Text
+								style={[
+									styles.segmentText,
+									{ color: reveal === name ? "white" : c.text },
 								]}
 							>
 								{name}
