@@ -4,13 +4,15 @@ import {
 	type TextLayoutEvent,
 	type ViewStyle,
 } from "react-native";
+import { TEXT_HEIGHT_PER_CAP_HEIGHT } from "../constants";
 import type { BoneShape } from "../types";
 
 type TextLine = TextLayoutEvent["nativeEvent"]["lines"][number];
 
 /**
- * Turns one laid-out line of text into a bar trimmed to the glyphs
- * (ascender to descender), centred in the line box, like Skullet's default.
+ * Turns one laid-out line of text into a bar the height of the glyphs,
+ * centred in the line box. With a custom lineHeight, iOS adds the extra
+ * space to ascender and descender, so the size comes from capHeight instead.
  */
 export function textLineToShape(
 	line: TextLine,
@@ -19,9 +21,12 @@ export function textLineToShape(
 	radius: number,
 ): BoneShape | null {
 	if (line.width <= 0 || line.text.trim() === "") return null;
-	const glyphHeight = line.ascender + line.descender;
+	const textHeight =
+		line.capHeight > 0
+			? line.capHeight * TEXT_HEIGHT_PER_CAP_HEIGHT
+			: line.ascender + line.descender;
 	const height =
-		glyphHeight > 0 && glyphHeight < line.height ? glyphHeight : line.height;
+		textHeight > 0 ? Math.min(textHeight, line.height) : line.height;
 	return {
 		x: originX + line.x,
 		y: originY + line.y + (line.height - height) / 2,

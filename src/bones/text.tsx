@@ -75,6 +75,7 @@ export default function BonesText({
 }
 
 const styles = StyleSheet.create({
-	// Keep the layout; hide the glyphs. Bars are drawn over this space.
-	hidden: { color: "transparent" },
+	// Keep the layout, hide everything drawn (including nested Text with its
+	// own color, which a transparent color would miss). Bars go on top.
+	hidden: { opacity: 0 },
 });

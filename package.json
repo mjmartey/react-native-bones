@@ -42,7 +42,8 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"test": "bun test",
-		"prepare": "bob build"
+		"prepare": "bob build",
+		"example": "bun --cwd example start"
 	},
 	"peerDependencies": {
 		"@shopify/react-native-skia": ">=2.0.0",
