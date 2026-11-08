@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { View, type ViewInstance } from "react-native";
-import BonesOverlay from "./components/bones-overlay";
+import BonesCanvas from "./components/bones-canvas";
 import { DEFAULT_RADIUS } from "./constants";
 import { SkeletonContext, type SkeletonContextValue } from "./context";
 import type { BoneShape, SkeletonProps } from "./types";
@@ -44,6 +44,10 @@ export default function Skeleton<T>({
 		[isLoading, layoutVersion, setShapes],
 	);
 
+	// Stable between renders unless a shape changed, so the canvas only
+	// rebuilds its path when something actually moved.
+	const bones = useMemo(() => Object.values(shapes).flat(), [shapes]);
+
 	const content = !isLoading && data != null ? data : sample;
 
 	return (
@@ -54,9 +58,7 @@ export default function Skeleton<T>({
 			onLayout={() => setLayoutVersion((version) => version + 1)}
 		>
 			<SkeletonContext value={context}>{children(content)}</SkeletonContext>
-			{isLoading ? (
-				<BonesOverlay shapes={Object.values(shapes).flat()} />
-			) : null}
+			{isLoading ? <BonesCanvas shapes={bones} /> : null}
 		</View>
 	);
 }

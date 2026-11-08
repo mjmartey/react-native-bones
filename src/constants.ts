@@ -7,3 +7,8 @@ export const DEFAULT_RADIUS = 6;
  * metric a custom lineHeight doesn't inflate, so bars are sized from it.
  */
 export const TEXT_HEIGHT_PER_CAP_HEIGHT = 1.7;
+
+/** Bar colours until the theme provider (Step 5) makes them configurable. */
+export const DEFAULT_COLORS = {
+	base: "#E4E7EC",
+} as const;
