@@ -18,6 +18,7 @@ export default function Skeleton<T>({
 	const isLoading = loading || data == null;
 	const rootRef = useRef<ViewInstance>(null);
 	const [layoutVersion, setLayoutVersion] = useState(0);
+	const [originX, setOriginX] = useState(0);
 	const [shapes, setShapeMap] = useState<ShapeMap>({});
 
 	const setShapes = useCallback(
@@ -48,6 +49,12 @@ export default function Skeleton<T>({
 	// rebuilds its path when something actually moved.
 	const bones = useMemo(() => Object.values(shapes).flat(), [shapes]);
 
+	function handleLayout() {
+		setLayoutVersion((version) => version + 1);
+		// Where this skeleton sits on screen, so its shimmer lines up with others.
+		rootRef.current?.measureInWindow((x) => setOriginX(x));
+	}
+
 	const content = !isLoading && data != null ? data : sample;
 
 	return (
@@ -55,10 +62,10 @@ export default function Skeleton<T>({
 			ref={rootRef}
 			collapsable={false}
 			style={style}
-			onLayout={() => setLayoutVersion((version) => version + 1)}
+			onLayout={handleLayout}
 		>
 			<SkeletonContext value={context}>{children(content)}</SkeletonContext>
-			{isLoading ? <BonesCanvas shapes={bones} /> : null}
+			{isLoading ? <BonesCanvas shapes={bones} originX={originX} /> : null}
 		</View>
 	);
 }
