@@ -1,12 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, type ViewInstance } from "react-native";
+import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
+import { REVEAL_FINISHED } from "./animation/reveal";
 import BonesCanvas from "./components/bones-canvas";
+import { REVEAL_DURATION, SHOW_DELAY } from "./constants";
 import { SkeletonContext, type SkeletonContextValue } from "./context";
 import { useBonesTheme } from "./theme";
 import type { BoneShape, SkeletonProps } from "./types";
 import { sameShapes } from "./utils/shapes";
 
-type ShapeMap = Readonly<Record<string, readonly BoneShape[]>>;
+export type ShapeMap = Readonly<Record<string, readonly BoneShape[]>>;
 
 export default function Skeleton<T>({
 	data,
@@ -21,6 +24,12 @@ export default function Skeleton<T>({
 	const [layoutVersion, setLayoutVersion] = useState(0);
 	const [originX, setOriginX] = useState(0);
 	const [shapes, setShapeMap] = useState<ShapeMap>({});
+	// Bars appear only after SHOW_DELAY of loading.
+	const [barsVisible, setBarsVisible] = useState(false);
+	// While revealing: the last bars per piece, kept on screen as they fade.
+	const [fading, setFading] = useState<ShapeMap | null>(null);
+	// Milliseconds into the reveal. Content fades in and bars fade out from it.
+	const revealClock = useSharedValue(isLoading ? 0 : REVEAL_FINISHED);
 
 	const setShapes = useCallback(
 		(id: string, next: readonly BoneShape[] | null) => {
@@ -38,17 +47,52 @@ export default function Skeleton<T>({
 		[],
 	);
 
-	const context = useMemo<SkeletonContextValue | null>(
-		() =>
-			isLoading
-				? { rootRef, layoutVersion, radius: theme.radius, setShapes }
-				: null,
-		[isLoading, layoutVersion, theme.radius, setShapes],
+	const context = useMemo<SkeletonContextValue>(
+		() => ({
+			measuring: isLoading,
+			rootRef,
+			layoutVersion,
+			radius: theme.radius,
+			setShapes,
+			revealClock,
+		}),
+		[isLoading, layoutVersion, theme.radius, setShapes, revealClock],
 	);
 
-	// Stable between renders unless a shape changed, so the canvas only
-	// rebuilds its path when something actually moved.
-	const bones = useMemo(() => Object.values(shapes).flat(), [shapes]);
+	// Runs only when loading starts or stops. It reads barsVisible and shapes
+	// from that render on purpose: they are the state at the moment it flipped.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: isLoading is the only trigger.
+	useEffect(() => {
+		if (isLoading) {
+			// (Re)started loading: cancel any reveal, show bars after the delay.
+			setFading(null);
+			revealClock.set(0);
+			const timer = setTimeout(() => setBarsVisible(true), SHOW_DELAY);
+			return () => clearTimeout(timer);
+		}
+
+		setBarsVisible(false);
+		setShapeMap({});
+
+		// Data beat the delay: no bars were shown, so show content at once.
+		if (!barsVisible) {
+			revealClock.set(REVEAL_FINISHED);
+			return;
+		}
+
+		// Crossfade: keep the bars, then run the clock. Each piece's content
+		// fades in while its bars fade out, both reading the same clock.
+		setFading(shapes);
+		revealClock.set(0);
+		revealClock.set(
+			withTiming(REVEAL_DURATION, {
+				duration: REVEAL_DURATION,
+				easing: Easing.linear,
+			}),
+		);
+		const timer = setTimeout(() => setFading(null), REVEAL_DURATION);
+		return () => clearTimeout(timer);
+	}, [isLoading]);
 
 	function handleLayout() {
 		setLayoutVersion((version) => version + 1);
@@ -56,6 +100,8 @@ export default function Skeleton<T>({
 		rootRef.current?.measureInWindow((x) => setOriginX(x));
 	}
 
+	// Loading: the live bars (once the delay has passed). Revealing: the copy.
+	const groups = isLoading ? (barsVisible ? shapes : null) : fading;
 	const content = !isLoading && data != null ? data : sample;
 
 	return (
@@ -66,8 +112,14 @@ export default function Skeleton<T>({
 			onLayout={handleLayout}
 		>
 			<SkeletonContext value={context}>{children(content)}</SkeletonContext>
-			{isLoading ? (
-				<BonesCanvas shapes={bones} originX={originX} theme={theme} />
+			{groups ? (
+				<BonesCanvas
+					groups={groups}
+					fading={!isLoading}
+					revealClock={revealClock}
+					originX={originX}
+					theme={theme}
+				/>
 			) : null}
 		</View>
 	);

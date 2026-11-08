@@ -1,65 +1,67 @@
 import { useEffect, useId, useRef } from "react";
 import {
+	type HostInstance,
 	type LayoutChangeEvent,
-	StyleSheet,
 	View,
-	type ViewInstance,
 	type ViewProps,
 } from "react-native";
-import { useSkeleton } from "../context";
+import Animated from "react-native-reanimated";
+import { type SkeletonContextValue, useSkeleton } from "../context";
 import { blockToShape, isShape } from "../utils/shapes";
+import { useRevealStyle } from "./use-reveal-style";
 
 /**
- * Drop-in `View` for painted boxes (buttons, chips, avatars). Inside a loading
- * `<Skeleton>`, it and everything in it become one bar.
+ * Drop-in `View` for painted boxes (buttons, chips, avatars). Inside a
+ * `<Skeleton>`, it and everything in it become one bar while loading.
  */
-export default function BonesView({ style, onLayout, ...props }: ViewProps) {
+export default function BonesView(props: ViewProps) {
 	const skeleton = useSkeleton();
+	if (!skeleton) return <View {...props} />;
+	return <SkeletonView {...props} skeleton={skeleton} />;
+}
+
+function SkeletonView({
+	skeleton,
+	style,
+	onLayout,
+	...props
+}: ViewProps & { skeleton: SkeletonContextValue }) {
+	const { measuring, rootRef, layoutVersion, radius, setShapes } = skeleton;
 	const id = useId();
-	const ref = useRef<ViewInstance>(null);
+	const ref = useRef<HostInstance>(null);
+	const revealStyle = useRevealStyle(skeleton);
 
 	function measure() {
 		const node = ref.current;
-		const root = skeleton?.rootRef.current;
-		if (!skeleton || !node || !root) return;
+		const root = rootRef.current;
+		if (!node || !root) return;
 		node.measureLayout(root, (x, y, width, height) => {
-			skeleton.setShapes(
+			setShapes(
 				id,
-				[blockToShape(x, y, width, height, style, skeleton.radius)].filter(
-					isShape,
-				),
+				[blockToShape(x, y, width, height, style, radius)].filter(isShape),
 			);
 		});
 	}
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: measure reads refs; layoutVersion is the trigger.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: measure reads refs; these are the triggers.
 	useEffect(() => {
-		measure();
-	}, [skeleton?.layoutVersion]);
+		if (measuring) measure();
+	}, [measuring, layoutVersion]);
 
-	// Depends only on the stable setShapes, so re-measures never clear the bars.
-	const setShapes = skeleton?.setShapes;
-	useEffect(() => {
-		if (!setShapes) return;
-		return () => setShapes(id, null);
-	}, [setShapes, id]);
+	useEffect(() => () => setShapes(id, null), [setShapes, id]);
 
 	function handleLayout(event: LayoutChangeEvent) {
 		onLayout?.(event);
-		measure();
+		if (measuring) measure();
 	}
 
 	return (
-		<View
+		<Animated.View
 			ref={ref}
 			collapsable={false}
 			{...props}
-			style={skeleton ? [style, styles.hidden] : style}
-			onLayout={skeleton ? handleLayout : onLayout}
+			style={[style, revealStyle]}
+			onLayout={handleLayout}
 		/>
 	);
 }
-
-const styles = StyleSheet.create({
-	hidden: { opacity: 0 },
-});

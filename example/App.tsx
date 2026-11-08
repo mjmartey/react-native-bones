@@ -45,21 +45,25 @@ const REAL_ROWS: Row[] = [
 	{ id: "3", name: "Yaw Boadu", amount: "GH₵ 2,400.00" },
 ];
 
-// Pretends to fetch: data is null for 2 seconds, then arrives.
-function useFakeFetch<T>(value: T) {
+// Pretends to fetch: data is null for `delay` ms, then arrives.
+function useFakeFetch<T>(value: T, delay: number) {
 	const [data, setData] = useState<T | null>(null);
 	useEffect(() => {
-		const timer = setTimeout(() => setData(value), 2000);
+		const timer = setTimeout(() => setData(value), delay);
 		return () => clearTimeout(timer);
-	}, [value]);
+	}, [value, delay]);
 	return data;
 }
+
+// Fake network speeds: a cache hit, a fast network, a slow one.
+const DELAYS = [100, 500, 2000];
 
 const ANIMATIONS: BonesAnimation[] = ["shimmer", "pulse", "none"];
 
 export default function App() {
 	const [reloadKey, setReloadKey] = useState(0);
-	const [holdLoading, setHoldLoading] = useState(true);
+	const [holdLoading, setHoldLoading] = useState(false);
+	const [delay, setDelay] = useState(2000);
 	const [animation, setAnimation] = useState<BonesAnimation>("shimmer");
 	const [dark, setDark] = useState(false);
 	const c = dark ? DARK : LIGHT;
@@ -89,6 +93,35 @@ export default function App() {
 				</View>
 
 				<View style={styles.segments}>
+					{DELAYS.map((ms) => (
+						<Pressable
+							key={ms}
+							onPress={() => {
+								setDelay(ms);
+								setReloadKey((k) => k + 1);
+							}}
+							style={[
+								styles.segment,
+								{ borderColor: c.border },
+								delay === ms && styles.segmentActive,
+							]}
+						>
+							<Text
+								style={[
+									styles.segmentText,
+									{ color: delay === ms ? "white" : c.text },
+								]}
+							>
+								{ms < 1000 ? `${ms} ms` : `${ms / 1000} s`}
+							</Text>
+						</Pressable>
+					))}
+				</View>
+				<Text style={[styles.caption, { color: c.body }]}>
+					Bars show after 150 ms. Faster data appears without a skeleton.
+				</Text>
+
+				<View style={styles.segments}>
 					{ANIMATIONS.map((name) => (
 						<Pressable
 							key={name}
@@ -112,7 +145,12 @@ export default function App() {
 				</View>
 
 				{/* A new key remounts Cards, so the fake fetch starts over. */}
-				<Cards key={reloadKey} holdLoading={holdLoading} colors={c} />
+				<Cards
+					key={reloadKey}
+					holdLoading={holdLoading}
+					delay={delay}
+					colors={c}
+				/>
 			</ScrollView>
 		</BonesProvider>
 	);
@@ -120,10 +158,11 @@ export default function App() {
 
 function Cards({
 	holdLoading,
+	delay,
 	colors: c,
-}: Readonly<{ holdLoading: boolean; colors: Palette }>) {
-	const agent = useFakeFetch(REAL_AGENT);
-	const rows = useFakeFetch(REAL_ROWS);
+}: Readonly<{ holdLoading: boolean; delay: number; colors: Palette }>) {
+	const agent = useFakeFetch(REAL_AGENT, delay);
+	const rows = useFakeFetch(REAL_ROWS, delay);
 
 	return (
 		<>
@@ -220,6 +259,7 @@ const styles = StyleSheet.create({
 	},
 	segmentActive: { backgroundColor: "#2E90FA", borderColor: "#2E90FA" },
 	segmentText: { fontWeight: "600" },
+	caption: { fontSize: 13, marginTop: -4 },
 	screen: {
 		padding: 20,
 		paddingTop: 72,

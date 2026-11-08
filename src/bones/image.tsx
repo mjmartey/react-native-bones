@@ -4,61 +4,63 @@ import {
 	Image,
 	type ImageProps,
 	type LayoutChangeEvent,
-	StyleSheet,
 } from "react-native";
-import { useSkeleton } from "../context";
+import Animated from "react-native-reanimated";
+import { type SkeletonContextValue, useSkeleton } from "../context";
 import { blockToShape, isShape } from "../utils/shapes";
+import { useRevealStyle } from "./use-reveal-style";
 
 /**
- * Drop-in `Image`. Inside a loading `<Skeleton>`, it becomes one bar.
+ * Drop-in `Image`. Inside a `<Skeleton>`, it becomes one bar while loading.
  * Give it a width and height (or aspectRatio) so it has a shape before loading.
  */
-export default function BonesImage({ style, onLayout, ...props }: ImageProps) {
+export default function BonesImage(props: ImageProps) {
 	const skeleton = useSkeleton();
+	if (!skeleton) return <Image {...props} />;
+	return <SkeletonImage {...props} skeleton={skeleton} />;
+}
+
+function SkeletonImage({
+	skeleton,
+	style,
+	onLayout,
+	...props
+}: ImageProps & { skeleton: SkeletonContextValue }) {
+	const { measuring, rootRef, layoutVersion, radius, setShapes } = skeleton;
 	const id = useId();
 	const ref = useRef<HostInstance>(null);
+	const revealStyle = useRevealStyle(skeleton);
 
 	function measure() {
 		const node = ref.current;
-		const root = skeleton?.rootRef.current;
-		if (!skeleton || !node || !root) return;
+		const root = rootRef.current;
+		if (!node || !root) return;
 		node.measureLayout(root, (x, y, width, height) => {
-			skeleton.setShapes(
+			setShapes(
 				id,
-				[blockToShape(x, y, width, height, style, skeleton.radius)].filter(
-					isShape,
-				),
+				[blockToShape(x, y, width, height, style, radius)].filter(isShape),
 			);
 		});
 	}
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: measure reads refs; layoutVersion is the trigger.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: measure reads refs; these are the triggers.
 	useEffect(() => {
-		measure();
-	}, [skeleton?.layoutVersion]);
+		if (measuring) measure();
+	}, [measuring, layoutVersion]);
 
-	// Depends only on the stable setShapes, so re-measures never clear the bars.
-	const setShapes = skeleton?.setShapes;
-	useEffect(() => {
-		if (!setShapes) return;
-		return () => setShapes(id, null);
-	}, [setShapes, id]);
+	useEffect(() => () => setShapes(id, null), [setShapes, id]);
 
 	function handleLayout(event: LayoutChangeEvent) {
 		onLayout?.(event);
-		measure();
+		if (measuring) measure();
 	}
 
 	return (
-		<Image
+		<Animated.Image
 			ref={ref}
 			{...props}
-			style={skeleton ? [style, styles.hidden] : style}
-			onLayout={skeleton ? handleLayout : onLayout}
+			style={[style, revealStyle]}
+			onLayout={handleLayout}
 		/>
 	);
 }
-
-const styles = StyleSheet.create({
-	hidden: { opacity: 0 },
-});

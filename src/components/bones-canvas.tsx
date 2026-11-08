@@ -1,26 +1,44 @@
-import { Canvas, LinearGradient, Path, Skia } from "@shopify/react-native-skia";
+import {
+	Canvas,
+	Group,
+	LinearGradient,
+	Path,
+	Skia,
+} from "@shopify/react-native-skia";
 import { useMemo } from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
-import { useDerivedValue } from "react-native-reanimated";
+import {
+	type DerivedValue,
+	type SharedValue,
+	useDerivedValue,
+} from "react-native-reanimated";
 import { useShimmerClock } from "../animation/clock";
+import { pieceProgress } from "../animation/reveal";
 import { SHIMMER_BAND } from "../constants";
+import type { ShapeMap } from "../skeleton";
 import type { BoneShape, BonesTheme } from "../types";
 
 /** Lowest opacity of the pulse animation (it breathes between this and 1). */
 const PULSE_MIN_OPACITY = 0.5;
 
+type Point = { x: number; y: number };
+
 /**
- * Draws every bar as one Skia path on one canvas. With `shimmer`, one moving
- * gradient fills it, positioned in *screen* coordinates (via `originX`) so
- * bands line up across separate skeletons. With `pulse`, the whole path
- * fades in and out together.
+ * Draws the bars on one canvas: one path per piece (so each piece can fade
+ * on its own during the reveal), all filled by the same moving gradient.
+ * The gradient is in *screen* coordinates (via `originX`), so the shimmer
+ * stays one continuous band across pieces and across separate skeletons.
  */
 export default function BonesCanvas({
-	shapes,
+	groups,
+	fading,
+	revealClock,
 	originX,
 	theme,
 }: Readonly<{
-	shapes: readonly BoneShape[];
+	groups: ShapeMap;
+	fading: boolean;
+	revealClock: SharedValue<number>;
 	originX: number;
 	theme: BonesTheme;
 }>) {
@@ -28,20 +46,6 @@ export default function BonesCanvas({
 	const progress = useShimmerClock(animation !== "none");
 	const { width: screenWidth } = useWindowDimensions();
 	const band = screenWidth * SHIMMER_BAND;
-
-	const path = useMemo(() => {
-		const builder = Skia.PathBuilder.Make();
-		for (const bone of shapes) {
-			builder.addRRect(
-				Skia.RRectXY(
-					Skia.XYWHRect(bone.x, bone.y, bone.width, bone.height),
-					bone.radius,
-					bone.radius,
-				),
-			);
-		}
-		return builder.build();
-	}, [shapes]);
 
 	const gradientColors = useMemo(
 		() => [colors.base, colors.highlight, colors.base],
@@ -63,7 +67,7 @@ export default function BonesCanvas({
 	}, [band, start]);
 
 	// Pulse: a cosine wave, 1 → PULSE_MIN_OPACITY → 1 over one clock cycle.
-	const opacity = useDerivedValue(() => {
+	const pulse = useDerivedValue(() => {
 		"worklet";
 		const wave = (1 + Math.cos(progress.get() * 2 * Math.PI)) / 2;
 		return PULSE_MIN_OPACITY + (1 - PULSE_MIN_OPACITY) * wave;
@@ -71,18 +75,73 @@ export default function BonesCanvas({
 
 	return (
 		<Canvas style={styles.canvas}>
-			{animation === "shimmer" ? (
-				<Path path={path} color={colors.base}>
-					<LinearGradient start={start} end={end} colors={gradientColors} />
-				</Path>
-			) : (
-				<Path
-					path={path}
-					color={colors.base}
-					opacity={animation === "pulse" ? opacity : 1}
-				/>
-			)}
+			<Group opacity={animation === "pulse" ? pulse : 1}>
+				{Object.entries(groups).map(([id, shapes]) => (
+					<BoneGroup
+						key={id}
+						shapes={shapes}
+						color={colors.base}
+						gradient={
+							animation === "shimmer"
+								? { start, end, colors: gradientColors }
+								: null
+						}
+						fading={fading}
+						revealClock={revealClock}
+					/>
+				))}
+			</Group>
 		</Canvas>
+	);
+}
+
+/** One piece's bars. Fades out on the reveal clock as its content fades in. */
+function BoneGroup({
+	shapes,
+	color,
+	gradient,
+	fading,
+	revealClock,
+}: Readonly<{
+	shapes: readonly BoneShape[];
+	color: string;
+	gradient: {
+		start: DerivedValue<Point>;
+		end: DerivedValue<Point>;
+		colors: string[];
+	} | null;
+	fading: boolean;
+	revealClock: SharedValue<number>;
+}>) {
+	const path = useMemo(() => {
+		const builder = Skia.PathBuilder.Make();
+		for (const bone of shapes) {
+			builder.addRRect(
+				Skia.RRectXY(
+					Skia.XYWHRect(bone.x, bone.y, bone.width, bone.height),
+					bone.radius,
+					bone.radius,
+				),
+			);
+		}
+		return builder.build();
+	}, [shapes]);
+
+	const opacity = useDerivedValue(() => {
+		"worklet";
+		return fading ? 1 - pieceProgress(revealClock.get(), 0) : 1;
+	}, [fading, revealClock]);
+
+	return (
+		<Path path={path} color={color} opacity={opacity}>
+			{gradient ? (
+				<LinearGradient
+					start={gradient.start}
+					end={gradient.end}
+					colors={gradient.colors}
+				/>
+			) : null}
+		</Path>
 	);
 }
 

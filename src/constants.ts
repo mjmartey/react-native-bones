@@ -22,3 +22,12 @@ export const SHIMMER_DURATION = 1600;
 
 /** Width of the shimmer's bright band, as a share of the screen width. */
 export const SHIMMER_BAND = 0.5;
+
+/**
+ * Wait this long before showing bars. Data that arrives sooner (a cache hit,
+ * a fast network) appears directly, without a skeleton flashing up and away.
+ */
+export const SHOW_DELAY = 150;
+
+/** How long the bars take to fade out over the real content. */
+export const REVEAL_DURATION = 250;

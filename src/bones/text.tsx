@@ -1,81 +1,80 @@
 import { useEffect, useId, useRef } from "react";
 import {
+	type HostInstance,
 	type LayoutChangeEvent,
-	StyleSheet,
 	Text,
-	type TextInstance,
 	type TextLayoutEvent,
 	type TextProps,
 } from "react-native";
-import { useSkeleton } from "../context";
+import Animated from "react-native-reanimated";
+import { type SkeletonContextValue, useSkeleton } from "../context";
 import { isShape, textLineToShape } from "../utils/shapes";
+import { useRevealStyle } from "./use-reveal-style";
 
 type TextLine = TextLayoutEvent["nativeEvent"]["lines"][number];
 
-/** Drop-in `Text`. Inside a loading `<Skeleton>`, draws one bar per line. */
-export default function BonesText({
+/** Drop-in `Text`. Inside a `<Skeleton>`, draws one bar per line while loading. */
+export default function BonesText(props: TextProps) {
+	const skeleton = useSkeleton();
+	// Outside a skeleton: a plain Text, no hooks, no animation, no cost.
+	if (!skeleton) return <Text {...props} />;
+	return <SkeletonText {...props} skeleton={skeleton} />;
+}
+
+function SkeletonText({
+	skeleton,
 	style,
 	onLayout,
 	onTextLayout,
 	...props
-}: TextProps) {
-	const skeleton = useSkeleton();
+}: TextProps & { skeleton: SkeletonContextValue }) {
+	const { measuring, rootRef, layoutVersion, radius, setShapes } = skeleton;
 	const id = useId();
-	const ref = useRef<TextInstance>(null);
+	const ref = useRef<HostInstance>(null);
 	const lines = useRef<readonly TextLine[]>([]);
+	const revealStyle = useRevealStyle(skeleton);
 
 	function measure() {
 		const node = ref.current;
-		const root = skeleton?.rootRef.current;
-		if (!skeleton || !node || !root) return;
+		const root = rootRef.current;
+		if (!node || !root) return;
 		node.measureLayout(root, (x, y) => {
-			skeleton.setShapes(
+			setShapes(
 				id,
 				lines.current
-					.map((line) => textLineToShape(line, x, y, skeleton.radius))
+					.map((line) => textLineToShape(line, x, y, radius))
 					.filter(isShape),
 			);
 		});
 	}
 
-	// Re-measure when the skeleton's layout changes (e.g. rotation).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: measure reads refs; layoutVersion is the trigger.
+	// Measure when loading starts and whenever the skeleton's layout changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: measure reads refs; these are the triggers.
 	useEffect(() => {
-		measure();
-	}, [skeleton?.layoutVersion]);
+		if (measuring) measure();
+	}, [measuring, layoutVersion]);
 
-	// Remove this text's bars when it unmounts or the skeleton finishes.
-	// Depends only on the stable setShapes, so re-measures never clear the bars.
-	const setShapes = skeleton?.setShapes;
-	useEffect(() => {
-		if (!setShapes) return;
-		return () => setShapes(id, null);
-	}, [setShapes, id]);
+	// Remove this text's bars when it unmounts.
+	useEffect(() => () => setShapes(id, null), [setShapes, id]);
 
 	function handleLayout(event: LayoutChangeEvent) {
 		onLayout?.(event);
-		measure();
+		if (measuring) measure();
 	}
 
 	function handleTextLayout(event: TextLayoutEvent) {
 		onTextLayout?.(event);
 		lines.current = event.nativeEvent.lines;
-		measure();
+		if (measuring) measure();
 	}
 
 	return (
-		<Text
+		<Animated.Text
 			ref={ref}
 			{...props}
-			style={skeleton ? [style, styles.hidden] : style}
-			onLayout={skeleton ? handleLayout : onLayout}
-			onTextLayout={skeleton ? handleTextLayout : onTextLayout}
+			style={[style, revealStyle]}
+			onLayout={handleLayout}
+			onTextLayout={handleTextLayout}
 		/>
 	);
 }
-
-const styles = StyleSheet.create({
-	// Keep the layout, hide everything drawn (including nested Text with its
-	// own color, which a transparent color would miss). Bars go on top.
-	hidden: { opacity: 0 },
-});
