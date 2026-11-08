@@ -1,2 +1,3 @@
-// Public API. Components are added in Step 4 (see docs/SPEC.md).
-export {};
+export { Bones } from "./bones";
+export { default as Skeleton } from "./skeleton";
+export type { BoneShape, SkeletonProps } from "./types";
