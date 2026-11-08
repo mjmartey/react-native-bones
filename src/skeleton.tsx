@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { View, type ViewInstance } from "react-native";
 import BonesCanvas from "./components/bones-canvas";
-import { DEFAULT_RADIUS } from "./constants";
 import { SkeletonContext, type SkeletonContextValue } from "./context";
+import { useBonesTheme } from "./theme";
 import type { BoneShape, SkeletonProps } from "./types";
 import { sameShapes } from "./utils/shapes";
 
@@ -16,6 +16,7 @@ export default function Skeleton<T>({
 	style,
 }: SkeletonProps<T>) {
 	const isLoading = loading || data == null;
+	const theme = useBonesTheme();
 	const rootRef = useRef<ViewInstance>(null);
 	const [layoutVersion, setLayoutVersion] = useState(0);
 	const [originX, setOriginX] = useState(0);
@@ -40,9 +41,9 @@ export default function Skeleton<T>({
 	const context = useMemo<SkeletonContextValue | null>(
 		() =>
 			isLoading
-				? { rootRef, layoutVersion, radius: DEFAULT_RADIUS, setShapes }
+				? { rootRef, layoutVersion, radius: theme.radius, setShapes }
 				: null,
-		[isLoading, layoutVersion, setShapes],
+		[isLoading, layoutVersion, theme.radius, setShapes],
 	);
 
 	// Stable between renders unless a shape changed, so the canvas only
@@ -65,7 +66,9 @@ export default function Skeleton<T>({
 			onLayout={handleLayout}
 		>
 			<SkeletonContext value={context}>{children(content)}</SkeletonContext>
-			{isLoading ? <BonesCanvas shapes={bones} originX={originX} /> : null}
+			{isLoading ? (
+				<BonesCanvas shapes={bones} originX={originX} theme={theme} />
+			) : null}
 		</View>
 	);
 }

@@ -20,3 +20,35 @@ export type SkeletonProps<T> = {
 	children: (value: T) => ReactNode;
 	style?: StyleProp<ViewStyle>;
 };
+
+export type BonesAnimation = "shimmer" | "pulse" | "none";
+
+export type BonesColors = {
+	/** The bar colour. */
+	base: string;
+	/** The shimmer's bright band. */
+	highlight: string;
+};
+
+/** What `BonesProvider` accepts. Every field is optional. */
+export type BonesThemeInput = {
+	light?: Partial<BonesColors>;
+	dark?: Partial<BonesColors>;
+	/** Corner radius for bars whose element sets no `borderRadius`. */
+	radius?: number;
+	animation?: BonesAnimation;
+};
+
+/** The resolved theme a skeleton draws with. */
+export type BonesTheme = {
+	colors: BonesColors;
+	radius: number;
+	animation: BonesAnimation;
+};
+
+export type BonesProviderProps = {
+	theme?: BonesThemeInput;
+	/** `system` follows the phone's light/dark setting. Defaults to `system`. */
+	mode?: "light" | "dark" | "system";
+	children: ReactNode;
+};

@@ -1,3 +1,12 @@
 export { Bones } from "./bones";
 export { default as Skeleton } from "./skeleton";
-export type { BoneShape, SkeletonProps } from "./types";
+export { BonesProvider, useBonesTheme } from "./theme";
+export type {
+	BoneShape,
+	BonesAnimation,
+	BonesColors,
+	BonesProviderProps,
+	BonesTheme,
+	BonesThemeInput,
+	SkeletonProps,
+} from "./types";

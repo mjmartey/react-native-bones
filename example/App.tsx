@@ -7,7 +7,12 @@ import {
 	Text,
 	View,
 } from "react-native";
-import { Bones, Skeleton } from "react-native-bones";
+import {
+	Bones,
+	type BonesAnimation,
+	BonesProvider,
+	Skeleton,
+} from "react-native-bones";
 
 type Agent = { name: string; role: string; avatar: string; bio: string };
 type Row = { id: string; name: string; amount: string };
@@ -50,34 +55,73 @@ function useFakeFetch<T>(value: T) {
 	return data;
 }
 
+const ANIMATIONS: BonesAnimation[] = ["shimmer", "pulse", "none"];
+
 export default function App() {
 	const [reloadKey, setReloadKey] = useState(0);
 	const [holdLoading, setHoldLoading] = useState(true);
+	const [animation, setAnimation] = useState<BonesAnimation>("shimmer");
+	const [dark, setDark] = useState(false);
+	const c = dark ? DARK : LIGHT;
 
 	return (
-		<ScrollView contentContainerStyle={styles.screen}>
-			<Text style={styles.title}>Bones Playground</Text>
+		<BonesProvider theme={{ animation }} mode={dark ? "dark" : "light"}>
+			<ScrollView
+				contentContainerStyle={[styles.screen, { backgroundColor: c.screen }]}
+			>
+				<Text style={[styles.title, { color: c.text }]}>Bones Playground</Text>
 
-			<View style={styles.controls}>
-				<View style={styles.control}>
-					<Switch value={holdLoading} onValueChange={setHoldLoading} />
-					<Text>Hold loading</Text>
+				<View style={styles.controls}>
+					<View style={styles.control}>
+						<Switch value={holdLoading} onValueChange={setHoldLoading} />
+						<Text style={{ color: c.text }}>Hold loading</Text>
+					</View>
+					<View style={styles.control}>
+						<Switch value={dark} onValueChange={setDark} />
+						<Text style={{ color: c.text }}>Dark</Text>
+					</View>
+					<Pressable
+						style={styles.button}
+						onPress={() => setReloadKey((k) => k + 1)}
+					>
+						<Text style={styles.buttonText}>Reload</Text>
+					</Pressable>
 				</View>
-				<Pressable
-					style={styles.button}
-					onPress={() => setReloadKey((k) => k + 1)}
-				>
-					<Text style={styles.buttonText}>Reload</Text>
-				</Pressable>
-			</View>
 
-			{/* A new key remounts Cards, so the fake fetch starts over. */}
-			<Cards key={reloadKey} holdLoading={holdLoading} />
-		</ScrollView>
+				<View style={styles.segments}>
+					{ANIMATIONS.map((name) => (
+						<Pressable
+							key={name}
+							onPress={() => setAnimation(name)}
+							style={[
+								styles.segment,
+								{ borderColor: c.border },
+								animation === name && styles.segmentActive,
+							]}
+						>
+							<Text
+								style={[
+									styles.segmentText,
+									{ color: animation === name ? "white" : c.text },
+								]}
+							>
+								{name}
+							</Text>
+						</Pressable>
+					))}
+				</View>
+
+				{/* A new key remounts Cards, so the fake fetch starts over. */}
+				<Cards key={reloadKey} holdLoading={holdLoading} colors={c} />
+			</ScrollView>
+		</BonesProvider>
 	);
 }
 
-function Cards({ holdLoading }: Readonly<{ holdLoading: boolean }>) {
+function Cards({
+	holdLoading,
+	colors: c,
+}: Readonly<{ holdLoading: boolean; colors: Palette }>) {
 	const agent = useFakeFetch(REAL_AGENT);
 	const rows = useFakeFetch(REAL_ROWS);
 
@@ -88,7 +132,7 @@ function Cards({ holdLoading }: Readonly<{ holdLoading: boolean }>) {
 				data={agent}
 				sample={SAMPLE_AGENT}
 				loading={holdLoading}
-				style={styles.card}
+				style={[styles.card, { backgroundColor: c.card }]}
 			>
 				{(a) => (
 					<>
@@ -98,13 +142,18 @@ function Cards({ holdLoading }: Readonly<{ holdLoading: boolean }>) {
 								style={styles.avatar}
 							/>
 							<View style={styles.flex}>
-								<Bones.Text style={styles.name} numberOfLines={1}>
+								<Bones.Text
+									style={[styles.name, { color: c.text }]}
+									numberOfLines={1}
+								>
 									{a.name}
 								</Bones.Text>
 								<Bones.Text style={styles.muted}>{a.role}</Bones.Text>
 							</View>
 						</View>
-						<Bones.Text style={styles.body}>{a.bio}</Bones.Text>
+						<Bones.Text style={[styles.body, { color: c.body }]}>
+							{a.bio}
+						</Bones.Text>
 						<Bones.View style={styles.chip}>
 							<Text style={styles.chipText}>Verified</Text>
 						</Bones.View>
@@ -117,13 +166,17 @@ function Cards({ holdLoading }: Readonly<{ holdLoading: boolean }>) {
 				data={rows}
 				sample={SAMPLE_ROWS}
 				loading={holdLoading}
-				style={styles.card}
+				style={[styles.card, { backgroundColor: c.card }]}
 			>
 				{(list) =>
 					list.map((row) => (
 						<View key={row.id} style={styles.row}>
-							<Bones.Text style={styles.body}>{row.name}</Bones.Text>
-							<Bones.Text style={styles.amount}>{row.amount}</Bones.Text>
+							<Bones.Text style={[styles.body, { color: c.body }]}>
+								{row.name}
+							</Bones.Text>
+							<Bones.Text style={[styles.amount, { color: c.text }]}>
+								{row.amount}
+							</Bones.Text>
 						</View>
 					))
 				}
@@ -132,7 +185,41 @@ function Cards({ holdLoading }: Readonly<{ holdLoading: boolean }>) {
 	);
 }
 
+type Palette = {
+	screen: string;
+	card: string;
+	text: string;
+	body: string;
+	border: string;
+};
+
+const LIGHT: Palette = {
+	screen: "#F8F9FB",
+	card: "#FFFFFF",
+	text: "#101828",
+	body: "#344054",
+	border: "#D0D5DD",
+};
+
+const DARK: Palette = {
+	screen: "#0C111D",
+	card: "#161B26",
+	text: "#F5F5F6",
+	body: "#CECFD2",
+	border: "#333741",
+};
+
 const styles = StyleSheet.create({
+	segments: { flexDirection: "row", gap: 8 },
+	segment: {
+		flex: 1,
+		alignItems: "center",
+		paddingVertical: 8,
+		borderRadius: 8,
+		borderWidth: 1,
+	},
+	segmentActive: { backgroundColor: "#2E90FA", borderColor: "#2E90FA" },
+	segmentText: { fontWeight: "600" },
 	screen: {
 		padding: 20,
 		paddingTop: 72,

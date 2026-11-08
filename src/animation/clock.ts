@@ -16,8 +16,9 @@ import { SHIMMER_DURATION } from "../constants";
 const progress = makeMutable(0);
 let subscribers = 0;
 
-export function useShimmerClock() {
+export function useShimmerClock(enabled: boolean) {
 	useEffect(() => {
+		if (!enabled) return;
 		subscribers += 1;
 		if (subscribers === 1) {
 			progress.set(0);
@@ -33,7 +34,7 @@ export function useShimmerClock() {
 			// Nothing is loading: stop ticking so no frames are spent.
 			if (subscribers === 0) cancelAnimation(progress);
 		};
-	}, []);
+	}, [enabled]);
 
 	return progress;
 }

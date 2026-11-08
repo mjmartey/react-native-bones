@@ -8,13 +8,16 @@ export const DEFAULT_RADIUS = 6;
  */
 export const TEXT_HEIGHT_PER_CAP_HEIGHT = 1.7;
 
-/** Bar colours until the theme provider (Step 5) makes them configurable. */
+/** Default bar colours per colour scheme; override them with `BonesProvider`. */
 export const DEFAULT_COLORS = {
-	base: "#E4E7EC",
-	highlight: "#F5F6F8",
+	light: { base: "#E4E7EC", highlight: "#F5F6F8" },
+	dark: { base: "#2A2F37", highlight: "#3A414C" },
 } as const;
 
-/** One sweep of the shimmer across the screen, in milliseconds. */
+/**
+ * One sweep of the shimmer (or one pulse), in milliseconds. App-wide on
+ * purpose: one shared clock is what keeps every skeleton in step.
+ */
 export const SHIMMER_DURATION = 1600;
 
 /** Width of the shimmer's bright band, as a share of the screen width. */
