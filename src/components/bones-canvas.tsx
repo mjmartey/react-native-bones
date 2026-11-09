@@ -33,6 +33,7 @@ type Point = { x: number; y: number };
  */
 export default function BonesCanvas({
 	groups,
+	visible,
 	fading,
 	revealClock,
 	revealDelays,
@@ -41,6 +42,8 @@ export default function BonesCanvas({
 	theme,
 }: Readonly<{
 	groups: ShapeMap;
+	/** False while loading but before SHOW_DELAY: mounted, not shown. */
+	visible: boolean;
 	fading: boolean;
 	revealClock: SharedValue<number>;
 	revealDelays: RevealDelays;
@@ -81,7 +84,7 @@ export default function BonesCanvas({
 
 	return (
 		<Canvas style={styles.canvas}>
-			<Group opacity={animation === "pulse" ? pulse : 1}>
+			<Group opacity={visible ? (animation === "pulse" ? pulse : 1) : 0}>
 				{Object.entries(groups)
 					.filter(([id]) => !(id in held))
 					.map(([id, shapes]) => (

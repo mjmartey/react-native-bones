@@ -95,35 +95,45 @@ export default function Skeleton<T>({
 		],
 	);
 
-	// Runs only when loading starts or stops. It reads barsVisible and shapes
-	// from that render on purpose: they are the state at the moment it flipped.
+	// When loading stops, snapshot the bars *in this render*, not in an effect.
+	// React re-renders straight away with the snapshot, so the first frame on
+	// screen already has it: no frame without bars, no canvas remount.
+	// (React's "storing information from previous renders" pattern.)
+	const [wasLoading, setWasLoading] = useState(isLoading);
+	if (wasLoading !== isLoading) {
+		setWasLoading(isLoading);
+		if (isLoading) {
+			setFading(null);
+			setDelays({});
+		} else {
+			setBarsVisible(false);
+			setShapeMap({});
+			// Only bars that were on screen get a reveal; fast data shows at once.
+			if (barsVisible) {
+				setFading(shapes);
+				setDelays(revealDelays(shapes, theme.reveal, originX, screenWidth));
+			}
+		}
+	}
+
+	// Timers and the reveal clock, once that render is committed. It reads
+	// fading and delays from the snapshot above.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: isLoading is the only trigger.
 	useEffect(() => {
 		if (isLoading) {
-			// (Re)started loading: cancel any reveal, show bars after the delay.
-			setFading(null);
-			setDelays({});
 			revealClock.set(0);
 			const timer = setTimeout(() => setBarsVisible(true), SHOW_DELAY);
 			return () => clearTimeout(timer);
 		}
 
-		setBarsVisible(false);
-		setShapeMap({});
-
-		// Data beat the delay: no bars were shown, so show content at once.
-		if (!barsVisible) {
+		if (!fading) {
 			revealClock.set(REVEAL_FINISHED);
 			return;
 		}
 
-		// Crossfade: keep the bars, then run the clock. Each piece's content
-		// fades in while its bars fade out, both reading the same clock, from
-		// that piece's delay (all 0 for `together`).
-		const nextDelays = revealDelays(shapes, theme.reveal, originX, screenWidth);
-		const total = longestDelay(nextDelays) + REVEAL_DURATION;
-		setFading(shapes);
-		setDelays(nextDelays);
+		// Each piece's content fades in while its bars fade out, both reading
+		// this clock from that piece's delay (all 0 for `together`).
+		const total = longestDelay(delays) + REVEAL_DURATION;
 		revealClock.set(0);
 		revealClock.set(
 			withTiming(total, { duration: total, easing: Easing.linear }),
@@ -138,12 +148,11 @@ export default function Skeleton<T>({
 		rootRef.current?.measureInWindow((x) => setOriginX(x));
 	}
 
-	// Loading: the live bars (once the delay has passed). After: the fading
-	// copy during the reveal, plus any bars held by images still loading.
+	// Loading: the live bars. The canvas mounts as loading starts, hidden until
+	// SHOW_DELAY passes, so Skia's surface is ready before the bars show.
+	// After: the fading copy during the reveal, plus bars held by images.
 	const groups = isLoading
-		? barsVisible
-			? shapes
-			: null
+		? shapes
 		: fading || Object.keys(held).length > 0
 			? (fading ?? {})
 			: null;
@@ -160,6 +169,7 @@ export default function Skeleton<T>({
 			{groups ? (
 				<BonesCanvas
 					groups={groups}
+					visible={!isLoading || barsVisible}
 					fading={!isLoading}
 					revealClock={revealClock}
 					revealDelays={delays}

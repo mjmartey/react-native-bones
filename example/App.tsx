@@ -40,6 +40,20 @@ const REAL_AGENT: Agent = {
 	bio: "Five years on the team. Runs onboarding for new agents in the Ashanti region and handles walk-in customers on weekends.",
 };
 
+type Photo = { image: string; title: string; caption: string };
+
+const SAMPLE_PHOTO: Photo = {
+	image: "",
+	title: "Branch open day",
+	caption: "New agents meeting customers at the front desk.",
+};
+
+const REAL_PHOTO: Photo = {
+	image: "https://picsum.photos/seed/bones/1200/675",
+	title: "Kumasi branch open day",
+	caption: "Walk-in customers trying devices before picking a payment plan.",
+};
+
 const REAL_ROWS: Row[] = [
 	{ id: "1", name: "Elliot Lassey", amount: "GH₵ 320.00" },
 	{ id: "2", name: "Abena Serwaa Darko", amount: "GH₵ 75.00" },
@@ -197,6 +211,7 @@ function Cards({
 	// you can watch it hold its bar while it downloads.
 	const [cacheBuster] = useState(() => Date.now());
 	const rows = useFakeFetch(REAL_ROWS, delay);
+	const photo = useFakeFetch(REAL_PHOTO, delay);
 
 	return (
 		<>
@@ -232,6 +247,32 @@ function Cards({
 						<Bones.View style={styles.chip}>
 							<Text style={styles.chipText}>Verified</Text>
 						</Bones.View>
+					</>
+				)}
+			</Skeleton>
+
+			<Text style={styles.section}>Branch</Text>
+			<Skeleton
+				data={photo}
+				sample={SAMPLE_PHOTO}
+				loading={holdLoading}
+				style={[styles.card, { backgroundColor: c.card }]}
+			>
+				{(p) => (
+					<>
+						{/* Full width with a fixed ratio, so it has a shape before loading. */}
+						<Bones.Image
+							source={
+								p.image ? { uri: `${p.image}?v=${cacheBuster}` } : undefined
+							}
+							style={styles.photo}
+						/>
+						<Bones.Text style={[styles.name, { color: c.text }]}>
+							{p.title}
+						</Bones.Text>
+						<Bones.Text style={[styles.body, { color: c.body }]}>
+							{p.caption}
+						</Bones.Text>
 					</>
 				)}
 			</Skeleton>
@@ -348,6 +389,12 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "center",
+	},
+	photo: {
+		width: "100%",
+		aspectRatio: 16 / 9,
+		borderRadius: 12,
+		backgroundColor: "#EAECF0",
 	},
 	amount: { fontSize: 15, fontWeight: "600" },
 });
