@@ -15,6 +15,7 @@ import {
 import { useShimmerClock } from "../animation/clock";
 import { pieceProgress } from "../animation/reveal";
 import { SHIMMER_BAND } from "../constants";
+import type { HeldBone } from "../context";
 import type { ShapeMap } from "../skeleton";
 import type { BoneShape, BonesTheme } from "../types";
 import type { RevealDelays } from "../utils/reveal-order";
@@ -35,6 +36,7 @@ export default function BonesCanvas({
 	fading,
 	revealClock,
 	revealDelays,
+	held,
 	originX,
 	theme,
 }: Readonly<{
@@ -42,6 +44,7 @@ export default function BonesCanvas({
 	fading: boolean;
 	revealClock: SharedValue<number>;
 	revealDelays: RevealDelays;
+	held: Readonly<Record<string, HeldBone>>;
 	originX: number;
 	theme: BonesTheme;
 }>) {
@@ -79,9 +82,26 @@ export default function BonesCanvas({
 	return (
 		<Canvas style={styles.canvas}>
 			<Group opacity={animation === "pulse" ? pulse : 1}>
-				{Object.entries(groups).map(([id, shapes]) => (
+				{Object.entries(groups)
+					.filter(([id]) => !(id in held))
+					.map(([id, shapes]) => (
+						<BoneGroup
+							key={id}
+							shapes={shapes}
+							color={colors.base}
+							gradient={
+								animation === "shimmer"
+									? { start, end, colors: gradientColors }
+									: null
+							}
+							fading={fading}
+							revealClock={revealClock}
+							delay={revealDelays[id] ?? 0}
+						/>
+					))}
+				{Object.entries(held).map(([id, { shapes, contentOpacity }]) => (
 					<BoneGroup
-						key={id}
+						key={`held:${id}`}
 						shapes={shapes}
 						color={colors.base}
 						gradient={
@@ -89,9 +109,10 @@ export default function BonesCanvas({
 								? { start, end, colors: gradientColors }
 								: null
 						}
-						fading={fading}
+						fading={false}
 						revealClock={revealClock}
-						delay={revealDelays[id] ?? 0}
+						delay={0}
+						contentOpacity={contentOpacity}
 					/>
 				))}
 			</Group>
@@ -107,6 +128,7 @@ function BoneGroup({
 	fading,
 	revealClock,
 	delay,
+	contentOpacity,
 }: Readonly<{
 	shapes: readonly BoneShape[];
 	color: string;
@@ -118,6 +140,8 @@ function BoneGroup({
 	fading: boolean;
 	revealClock: SharedValue<number>;
 	delay: number;
+	/** A held bar fades as its piece appears: opacity is 1 minus this. */
+	contentOpacity?: DerivedValue<number>;
 }>) {
 	const path = useMemo(() => {
 		const builder = Skia.PathBuilder.Make();
@@ -135,8 +159,9 @@ function BoneGroup({
 
 	const opacity = useDerivedValue(() => {
 		"worklet";
+		if (contentOpacity) return 1 - contentOpacity.get();
 		return fading ? 1 - pieceProgress(revealClock.get(), delay) : 1;
-	}, [fading, revealClock, delay]);
+	}, [fading, revealClock, delay, contentOpacity]);
 
 	return (
 		<Path path={path} color={color} opacity={opacity}>

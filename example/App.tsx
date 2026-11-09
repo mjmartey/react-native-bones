@@ -193,6 +193,9 @@ function Cards({
 	colors: c,
 }: Readonly<{ holdLoading: boolean; delay: number; colors: Palette }>) {
 	const agent = useFakeFetch(REAL_AGENT, delay);
+	// A new URL per reload, so the phone can't serve the avatar from cache and
+	// you can watch it hold its bar while it downloads.
+	const [cacheBuster] = useState(() => Date.now());
 	const rows = useFakeFetch(REAL_ROWS, delay);
 
 	return (
@@ -208,7 +211,9 @@ function Cards({
 					<>
 						<View style={styles.header}>
 							<Bones.Image
-								source={a.avatar ? { uri: a.avatar } : undefined}
+								source={
+									a.avatar ? { uri: `${a.avatar}&v=${cacheBuster}` } : undefined
+								}
 								style={styles.avatar}
 							/>
 							<View style={styles.flex}>

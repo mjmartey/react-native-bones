@@ -1,8 +1,18 @@
 import { createContext, type RefObject, useContext } from "react";
 import type { ViewInstance } from "react-native";
-import type { SharedValue } from "react-native-reanimated";
+import type { DerivedValue, SharedValue } from "react-native-reanimated";
 import type { BoneShape } from "./types";
 import type { RevealDelays } from "./utils/reveal-order";
+
+/**
+ * A bar kept on screen after loading by a piece that isn't ready yet (an
+ * image still downloading). Drawn at `1 - contentOpacity`, so it fades out
+ * exactly as the piece fades in.
+ */
+export type HeldBone = {
+	shapes: readonly BoneShape[];
+	contentOpacity: DerivedValue<number>;
+};
 
 export type SkeletonContextValue = {
 	/** True while loading: primitives hide their content and report shapes. */
@@ -18,6 +28,8 @@ export type SkeletonContextValue = {
 	revealClock: SharedValue<number>;
 	/** When each piece (by id) starts its reveal, in ms. Missing means 0. */
 	revealDelays: RevealDelays;
+	/** Keep this piece's bar after loading, or `null` to drop it. */
+	setHeld: (id: string, held: HeldBone | null) => void;
 };
 
 /**

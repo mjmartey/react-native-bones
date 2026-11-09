@@ -4,15 +4,27 @@ import {
 	Image,
 	type ImageProps,
 	type LayoutChangeEvent,
+	type NativeSyntheticEvent,
 } from "react-native";
-import Animated from "react-native-reanimated";
+import Animated, {
+	useAnimatedReaction,
+	useAnimatedStyle,
+	useDerivedValue,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
+import { pieceProgress } from "../animation/reveal";
+import { REVEAL_DURATION } from "../constants";
 import { type SkeletonContextValue, useSkeleton } from "../context";
+import type { BoneShape } from "../types";
 import { blockToShape, isShape } from "../utils/shapes";
-import { useRevealStyle } from "./use-reveal-style";
 
 /**
  * Drop-in `Image`. Inside a `<Skeleton>`, it becomes one bar while loading.
- * Give it a width and height (or aspectRatio) so it has a shape before loading.
+ * After the reveal, it keeps its bar until the image itself has loaded, then
+ * fades in on its own. Give it a width and height (or aspectRatio) so it has
+ * a shape before loading.
  */
 export default function BonesImage(props: ImageProps) {
 	const skeleton = useSkeleton();
@@ -20,26 +32,76 @@ export default function BonesImage(props: ImageProps) {
 	return <SkeletonImage {...props} skeleton={skeleton} />;
 }
 
+/** False when there is nothing to load (no source, or an empty uri). */
+function hasImage(source: ImageProps["source"]): boolean {
+	if (source == null) return false;
+	if (typeof source !== "object" || !("uri" in source)) return true;
+	return Boolean(source.uri);
+}
+
 function SkeletonImage({
 	skeleton,
 	style,
+	source,
 	onLayout,
+	onLoad,
+	onError,
 	...props
 }: ImageProps & { skeleton: SkeletonContextValue }) {
-	const { measuring, rootRef, layoutVersion, radius, setShapes } = skeleton;
+	const {
+		measuring,
+		rootRef,
+		layoutVersion,
+		radius,
+		setShapes,
+		setHeld,
+		revealClock,
+		revealDelays,
+	} = skeleton;
 	const id = useId();
 	const ref = useRef<HostInstance>(null);
-	const revealStyle = useRevealStyle(skeleton, id);
+	const lastShapes = useRef<readonly BoneShape[]>([]);
+	const delay = revealDelays[id] ?? 0;
+
+	// 0 → 1 as the image arrives. No source means nothing to wait for.
+	const hasSource = hasImage(source);
+	const sourceKey = JSON.stringify(source ?? null);
+	const imageProgress = useSharedValue(hasSource ? 0 : 1);
+
+	// A new image (e.g. sample → real) has to load again.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sourceKey is the trigger; hasSource derives from it.
+	useEffect(() => {
+		imageProgress.set(hasSource ? 0 : 1);
+	}, [sourceKey]);
+
+	function handleLoaded() {
+		imageProgress.set(withTiming(1, { duration: REVEAL_DURATION }));
+	}
+
+	// The image shows only when both the reveal and the image have arrived.
+	const contentOpacity = useDerivedValue(() => {
+		"worklet";
+		if (measuring) return 0;
+		return Math.min(
+			pieceProgress(revealClock.get(), delay),
+			imageProgress.get(),
+		);
+	}, [measuring, revealClock, delay, imageProgress]);
+	const revealStyle = useAnimatedStyle(() => {
+		"worklet";
+		return { opacity: contentOpacity.get() };
+	}, [contentOpacity]);
 
 	function measure() {
 		const node = ref.current;
 		const root = rootRef.current;
 		if (!node || !root) return;
 		node.measureLayout(root, (x, y, width, height) => {
-			setShapes(
-				id,
-				[blockToShape(x, y, width, height, style, radius)].filter(isShape),
+			const shapes = [blockToShape(x, y, width, height, style, radius)].filter(
+				isShape,
 			);
+			lastShapes.current = shapes;
+			setShapes(id, shapes);
 		});
 	}
 
@@ -50,6 +112,23 @@ function SkeletonImage({
 
 	useEffect(() => () => setShapes(id, null), [setShapes, id]);
 
+	// After loading, this image owns its bar: it stays until the image is in.
+	useEffect(() => {
+		if (measuring || lastShapes.current.length === 0) return;
+		setHeld(id, { shapes: lastShapes.current, contentOpacity });
+		return () => setHeld(id, null);
+	}, [measuring, id, setHeld, contentOpacity]);
+
+	// Once the image is fully shown, drop the bar (and the canvas, if it was
+	// the last thing holding it).
+	useAnimatedReaction(
+		() => !measuring && contentOpacity.get() >= 1,
+		(done, wasDone) => {
+			if (done && !wasDone) scheduleOnRN(setHeld, id, null);
+		},
+		[measuring, contentOpacity, id, setHeld],
+	);
+
 	function handleLayout(event: LayoutChangeEvent) {
 		onLayout?.(event);
 		if (measuring) measure();
@@ -59,8 +138,18 @@ function SkeletonImage({
 		<Animated.Image
 			ref={ref}
 			{...props}
+			source={source}
 			style={[style, revealStyle]}
 			onLayout={handleLayout}
+			onLoad={(event) => {
+				onLoad?.(event);
+				handleLoaded();
+			}}
+			// A failed image still finishes its reveal, so no bar is left behind.
+			onError={(event: NativeSyntheticEvent<{ error: string }>) => {
+				onError?.(event);
+				handleLoaded();
+			}}
 		/>
 	);
 }

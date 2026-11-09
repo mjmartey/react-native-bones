@@ -4,7 +4,11 @@ import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { REVEAL_FINISHED } from "./animation/reveal";
 import BonesCanvas from "./components/bones-canvas";
 import { REVEAL_DURATION, SHOW_DELAY } from "./constants";
-import { SkeletonContext, type SkeletonContextValue } from "./context";
+import {
+	type HeldBone,
+	SkeletonContext,
+	type SkeletonContextValue,
+} from "./context";
 import { useBonesTheme } from "./theme";
 import type { BoneShape, SkeletonProps } from "./types";
 import {
@@ -36,6 +40,20 @@ export default function Skeleton<T>({
 	// When each piece starts its reveal (empty for `together`: all at 0).
 	const [delays, setDelays] = useState<RevealDelays>({});
 	const { width: screenWidth } = useWindowDimensions();
+	// Bars kept after loading by pieces that aren't ready (images).
+	const [held, setHeldMap] = useState<Readonly<Record<string, HeldBone>>>({});
+
+	const setHeld = useCallback((id: string, next: HeldBone | null) => {
+		setHeldMap((current) => {
+			if (next === null) {
+				if (!(id in current)) return current;
+				return Object.fromEntries(
+					Object.entries(current).filter(([key]) => key !== id),
+				);
+			}
+			return { ...current, [id]: next };
+		});
+	}, []);
 	// Milliseconds into the reveal. Content fades in and bars fade out from it.
 	const revealClock = useSharedValue(isLoading ? 0 : REVEAL_FINISHED);
 
@@ -64,8 +82,17 @@ export default function Skeleton<T>({
 			setShapes,
 			revealClock,
 			revealDelays: delays,
+			setHeld,
 		}),
-		[isLoading, layoutVersion, theme.radius, setShapes, revealClock, delays],
+		[
+			isLoading,
+			layoutVersion,
+			theme.radius,
+			setShapes,
+			revealClock,
+			delays,
+			setHeld,
+		],
 	);
 
 	// Runs only when loading starts or stops. It reads barsVisible and shapes
@@ -111,8 +138,15 @@ export default function Skeleton<T>({
 		rootRef.current?.measureInWindow((x) => setOriginX(x));
 	}
 
-	// Loading: the live bars (once the delay has passed). Revealing: the copy.
-	const groups = isLoading ? (barsVisible ? shapes : null) : fading;
+	// Loading: the live bars (once the delay has passed). After: the fading
+	// copy during the reveal, plus any bars held by images still loading.
+	const groups = isLoading
+		? barsVisible
+			? shapes
+			: null
+		: fading || Object.keys(held).length > 0
+			? (fading ?? {})
+			: null;
 	const content = !isLoading && data != null ? data : sample;
 
 	return (
@@ -129,6 +163,7 @@ export default function Skeleton<T>({
 					fading={!isLoading}
 					revealClock={revealClock}
 					revealDelays={delays}
+					held={isLoading ? {} : held}
 					originX={originX}
 					theme={theme}
 				/>
