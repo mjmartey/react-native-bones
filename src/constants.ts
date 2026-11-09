@@ -34,3 +34,9 @@ export const REVEAL_DURATION = 250;
 
 /** Extra time the last piece waits in `sequence` and `sweep` reveals. */
 export const REVEAL_SPREAD = 350;
+
+/**
+ * `smart` plays a `sequence` once content has this many rows (pieces at
+ * different heights); below that, one crossfade reads better.
+ */
+export const SMART_SEQUENCE_ROWS = 4;

@@ -59,7 +59,7 @@ function useFakeFetch<T>(value: T, delay: number) {
 // Fake network speeds: a cache hit, a fast network, a slow one.
 const DELAYS = [100, 500, 2000];
 
-const REVEALS: BonesReveal[] = ["together", "sequence", "sweep"];
+const REVEALS: BonesReveal[] = ["smart", "together", "sequence", "sweep"];
 
 const ANIMATIONS: BonesAnimation[] = ["shimmer", "pulse", "none"];
 
@@ -69,7 +69,7 @@ export default function App() {
 	const [delay, setDelay] = useState(2000);
 	const [animation, setAnimation] = useState<BonesAnimation>("shimmer");
 	const [dark, setDark] = useState(false);
-	const [reveal, setReveal] = useState<BonesReveal>("together");
+	const [reveal, setReveal] = useState<BonesReveal>("smart");
 	const c = dark ? DARK : LIGHT;
 
 	return (

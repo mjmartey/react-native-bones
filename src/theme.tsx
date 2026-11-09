@@ -7,7 +7,7 @@ const DEFAULT_THEME: BonesTheme = {
 	colors: DEFAULT_COLORS.light,
 	radius: DEFAULT_RADIUS,
 	animation: "shimmer",
-	reveal: "together",
+	reveal: "smart",
 };
 
 /**
@@ -20,7 +20,7 @@ const ThemeContext = createContext<BonesTheme | null>(null);
 export function BonesProvider({
 	theme,
 	mode = "system",
-	reveal = "together",
+	reveal = "smart",
 	children,
 }: BonesProviderProps) {
 	const systemScheme = useColorScheme();
