@@ -14,14 +14,24 @@ export const DEFAULT_COLORS = {
 	dark: { base: "#2A2F37", highlight: "#3A414C" },
 } as const;
 
-/**
- * One sweep of the shimmer (or one pulse), in milliseconds. App-wide on
- * purpose: one shared clock is what keeps every skeleton in step.
- */
-export const SHIMMER_DURATION = 1600;
+/** One full pulse (bright → dim → bright), in milliseconds. */
+export const PULSE_DURATION = 1600;
 
-/** Width of the shimmer's bright band, as a share of the screen width. */
-export const SHIMMER_BAND = 0.5;
+/*
+ * Shimmer geometry, after Skullet: a repeating gradient at 110° (CSS angle:
+ * 0° points up, 90° right). The repeat scales with the screen, so a card
+ * sees one wide, soft band at a time. Each band rises softly over
+ * SHIMMER_RISE of the repeat and falls over SHIMMER_FALL; the rest is the
+ * plain bar colour.
+ */
+export const SHIMMER_ANGLE = 110;
+/** One band every this many screen widths. */
+export const SHIMMER_PERIOD = 1.5;
+export const SHIMMER_RISE = 0.34;
+export const SHIMMER_FALL = 0.1;
+
+/** Time for the bands to move on by one repeat, in milliseconds. */
+export const SHIMMER_DURATION = 2400;
 
 /**
  * Wait this long before showing bars. Data that arrives sooner (a cache hit,
@@ -30,13 +40,16 @@ export const SHIMMER_BAND = 0.5;
 export const SHOW_DELAY = 150;
 
 /** How long the bars take to fade out over the real content. */
-export const REVEAL_DURATION = 250;
+export const REVEAL_DURATION = 240;
 
 /** Extra time the last piece waits in `sequence` and `sweep` reveals. */
-export const REVEAL_SPREAD = 350;
+export const REVEAL_SPREAD = 240;
 
 /**
  * `smart` plays a `sequence` once content has this many rows (pieces at
  * different heights); below that, one crossfade reads better.
  */
 export const SMART_SEQUENCE_ROWS = 4;
+
+/** How long the skeleton takes to fade in when it first appears. */
+export const APPEAR_DURATION = 200;

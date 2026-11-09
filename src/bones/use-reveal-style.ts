@@ -1,5 +1,5 @@
 import { useAnimatedStyle } from "react-native-reanimated";
-import { pieceProgress } from "../animation/reveal";
+import { contentProgress } from "../animation/reveal";
 import type { SkeletonContextValue } from "../context";
 
 /**
@@ -14,7 +14,7 @@ export function useRevealStyle(
 	return useAnimatedStyle(() => {
 		"worklet";
 		return {
-			opacity: measuring ? 0 : pieceProgress(revealClock.get(), delay),
+			opacity: measuring ? 0 : contentProgress(revealClock.get(), delay),
 		};
 	}, [measuring, revealClock, delay]);
 }

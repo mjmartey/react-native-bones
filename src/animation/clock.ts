@@ -1,40 +1,26 @@
 import { useEffect } from "react";
-import {
-	cancelAnimation,
-	Easing,
-	makeMutable,
-	withRepeat,
-	withTiming,
-} from "react-native-reanimated";
-import { SHIMMER_DURATION } from "../constants";
+import { useFrameCallback, useSharedValue } from "react-native-reanimated";
 
 /**
- * One clock for the whole app, going 0 → 1 on repeat. Every skeleton reads
- * the same value, so a skeleton that mounts mid-sweep joins in step with the
- * ones already on screen instead of starting its own sweep.
+ * The current frame's timestamp, in milliseconds, like Skullet's document
+ * clock. Every canvas reads the same timestamp in the same frame, so all
+ * skeletons are in step without sharing any state, and the phase never
+ * resets: a skeleton that mounts (or remounts) late simply joins wherever
+ * the animation already is.
  */
-const progress = makeMutable(0);
-let subscribers = 0;
+export function useAnimationTime(enabled: boolean) {
+	const time = useSharedValue(0);
+	const frame = useFrameCallback((info) => {
+		"worklet";
+		time.set(info.timestamp);
+	}, false);
 
-export function useShimmerClock(enabled: boolean) {
+	// Only tick while something animates; a still or finished skeleton costs
+	// no frames.
 	useEffect(() => {
-		if (!enabled) return;
-		subscribers += 1;
-		if (subscribers === 1) {
-			progress.set(0);
-			progress.set(
-				withRepeat(
-					withTiming(1, { duration: SHIMMER_DURATION, easing: Easing.linear }),
-					-1,
-				),
-			);
-		}
-		return () => {
-			subscribers -= 1;
-			// Nothing is loading: stop ticking so no frames are spent.
-			if (subscribers === 0) cancelAnimation(progress);
-		};
-	}, [enabled]);
+		frame.setActive(enabled);
+		return () => frame.setActive(false);
+	}, [enabled, frame]);
 
-	return progress;
+	return time;
 }

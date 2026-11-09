@@ -14,7 +14,7 @@ import Animated, {
 	withTiming,
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
-import { pieceProgress } from "../animation/reveal";
+import { contentProgress } from "../animation/reveal";
 import { REVEAL_DURATION } from "../constants";
 import { type SkeletonContextValue, useSkeleton } from "../context";
 import type { BoneShape } from "../types";
@@ -83,7 +83,7 @@ function SkeletonImage({
 		"worklet";
 		if (measuring) return 0;
 		return Math.min(
-			pieceProgress(revealClock.get(), delay),
+			contentProgress(revealClock.get(), delay),
 			imageProgress.get(),
 		);
 	}, [measuring, revealClock, delay, imageProgress]);

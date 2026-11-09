@@ -3,22 +3,31 @@ import {
 	Group,
 	LinearGradient,
 	Path,
+	type SkColor,
 	Skia,
 } from "@shopify/react-native-skia";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { StyleSheet, useWindowDimensions } from "react-native";
 import {
 	type DerivedValue,
 	type SharedValue,
 	useDerivedValue,
+	useSharedValue,
+	withTiming,
 } from "react-native-reanimated";
-import { useShimmerClock } from "../animation/clock";
-import { pieceProgress } from "../animation/reveal";
-import { SHIMMER_BAND } from "../constants";
+import { useAnimationTime } from "../animation/clock";
+import { boneOpacity, CSS_EASE } from "../animation/reveal";
+import {
+	APPEAR_DURATION,
+	PULSE_DURATION,
+	SHIMMER_DURATION,
+	SHIMMER_PERIOD,
+} from "../constants";
 import type { HeldBone } from "../context";
 import type { ShapeMap } from "../skeleton";
 import type { BoneShape, BonesTheme } from "../types";
 import type { RevealDelays } from "../utils/reveal-order";
+import { SHIMMER_DIRECTION, shimmerStops } from "../utils/shimmer";
 
 /** Lowest opacity of the pulse animation (it breathes between this and 1). */
 const PULSE_MIN_OPACITY = 0.5;
@@ -27,9 +36,9 @@ type Point = { x: number; y: number };
 
 /**
  * Draws the bars on one canvas: one path per piece (so each piece can fade
- * on its own during the reveal), all filled by the same moving gradient.
- * The gradient is in *screen* coordinates (via `originX`), so the shimmer
- * stays one continuous band across pieces and across separate skeletons.
+ * on its own during the reveal), all filled by the same repeating diagonal
+ * gradient. The gradient is in *screen* coordinates (via `origin`), so the
+ * bands run continuously across pieces and across separate skeletons.
  */
 export default function BonesCanvas({
 	groups,
@@ -38,7 +47,7 @@ export default function BonesCanvas({
 	revealClock,
 	revealDelays,
 	held,
-	originX,
+	origin,
 	theme,
 }: Readonly<{
 	groups: ShapeMap;
@@ -48,43 +57,66 @@ export default function BonesCanvas({
 	revealClock: SharedValue<number>;
 	revealDelays: RevealDelays;
 	held: Readonly<Record<string, HeldBone>>;
-	originX: number;
+	/** Where this skeleton sits on screen. */
+	origin: Point;
 	theme: BonesTheme;
 }>) {
 	const { colors, animation } = theme;
-	const progress = useShimmerClock(animation !== "none");
-	const { width: screenWidth } = useWindowDimensions();
-	const band = screenWidth * SHIMMER_BAND;
+	const time = useAnimationTime(animation !== "none");
 
-	const gradientColors = useMemo(
-		() => [colors.base, colors.highlight, colors.base],
+	const stops = useMemo(
+		() => shimmerStops(colors.base, colors.highlight),
 		[colors.base, colors.highlight],
 	);
 
-	// Shimmer: the band's left edge travels from fully off-screen left (-band)
-	// to fully off-screen right (screenWidth). Runs on the UI thread.
+	// Shimmer: slide the repeating gradient along its own direction, one
+	// repeat every SHIMMER_DURATION. The gradient line spans one repeat and
+	// `mode="repeat"` tiles it; wrapping at one repeat keeps numbers small.
+	const { width: screenWidth } = useWindowDimensions();
+	const period = screenWidth * SHIMMER_PERIOD;
 	const start = useDerivedValue(() => {
 		"worklet";
+		const travelled =
+			((time.get() % SHIMMER_DURATION) / SHIMMER_DURATION) * period;
 		return {
-			x: -band + progress.get() * (screenWidth + band) - originX,
-			y: 0,
+			x: SHIMMER_DIRECTION.x * travelled - origin.x,
+			y: SHIMMER_DIRECTION.y * travelled - origin.y,
 		};
-	}, [band, screenWidth, originX, progress]);
+	}, [time, period, origin.x, origin.y]);
 	const end = useDerivedValue(() => {
 		"worklet";
-		return { x: start.get().x + band, y: 0 };
-	}, [band, start]);
+		const from = start.get();
+		return {
+			x: from.x + SHIMMER_DIRECTION.x * period,
+			y: from.y + SHIMMER_DIRECTION.y * period,
+		};
+	}, [start, period]);
 
-	// Pulse: a cosine wave, 1 → PULSE_MIN_OPACITY → 1 over one clock cycle.
+	// Pulse: a cosine wave, 1 → PULSE_MIN_OPACITY → 1 every PULSE_DURATION.
 	const pulse = useDerivedValue(() => {
 		"worklet";
-		const wave = (1 + Math.cos(progress.get() * 2 * Math.PI)) / 2;
+		const phase = (time.get() % PULSE_DURATION) / PULSE_DURATION;
+		const wave = (1 + Math.cos(phase * 2 * Math.PI)) / 2;
 		return PULSE_MIN_OPACITY + (1 - PULSE_MIN_OPACITY) * wave;
-	}, [progress]);
+	}, [time]);
+
+	// Fade the skeleton in when it first shows, instead of popping it in.
+	const appear = useSharedValue(visible ? 1 : 0);
+	useEffect(() => {
+		appear.set(
+			visible
+				? withTiming(1, { duration: APPEAR_DURATION, easing: CSS_EASE })
+				: 0,
+		);
+	}, [visible, appear]);
+	const groupOpacity = useDerivedValue(() => {
+		"worklet";
+		return appear.get() * (animation === "pulse" ? pulse.get() : 1);
+	}, [appear, pulse, animation]);
 
 	return (
 		<Canvas style={styles.canvas}>
-			<Group opacity={visible ? (animation === "pulse" ? pulse : 1) : 0}>
+			<Group opacity={groupOpacity}>
 				{Object.entries(groups)
 					.filter(([id]) => !(id in held))
 					.map(([id, shapes]) => (
@@ -93,9 +125,7 @@ export default function BonesCanvas({
 							shapes={shapes}
 							color={colors.base}
 							gradient={
-								animation === "shimmer"
-									? { start, end, colors: gradientColors }
-									: null
+								animation === "shimmer" ? { start, end, ...stops } : null
 							}
 							fading={fading}
 							revealClock={revealClock}
@@ -107,11 +137,7 @@ export default function BonesCanvas({
 						key={`held:${id}`}
 						shapes={shapes}
 						color={colors.base}
-						gradient={
-							animation === "shimmer"
-								? { start, end, colors: gradientColors }
-								: null
-						}
+						gradient={animation === "shimmer" ? { start, end, ...stops } : null}
 						fading={false}
 						revealClock={revealClock}
 						delay={0}
@@ -138,7 +164,8 @@ function BoneGroup({
 	gradient: {
 		start: DerivedValue<Point>;
 		end: DerivedValue<Point>;
-		colors: string[];
+		colors: SkColor[];
+		positions: number[];
 	} | null;
 	fading: boolean;
 	revealClock: SharedValue<number>;
@@ -163,7 +190,7 @@ function BoneGroup({
 	const opacity = useDerivedValue(() => {
 		"worklet";
 		if (contentOpacity) return 1 - contentOpacity.get();
-		return fading ? 1 - pieceProgress(revealClock.get(), delay) : 1;
+		return fading ? boneOpacity(revealClock.get(), delay) : 1;
 	}, [fading, revealClock, delay, contentOpacity]);
 
 	return (
@@ -173,6 +200,8 @@ function BoneGroup({
 					start={gradient.start}
 					end={gradient.end}
 					colors={gradient.colors}
+					positions={gradient.positions}
+					mode="repeat"
 				/>
 			) : null}
 		</Path>

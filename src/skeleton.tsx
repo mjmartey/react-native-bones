@@ -31,7 +31,7 @@ export default function Skeleton<T>({
 	const theme = useBonesTheme();
 	const rootRef = useRef<ViewInstance>(null);
 	const [layoutVersion, setLayoutVersion] = useState(0);
-	const [originX, setOriginX] = useState(0);
+	const [origin, setOrigin] = useState({ x: 0, y: 0 });
 	const [shapes, setShapeMap] = useState<ShapeMap>({});
 	// Bars appear only after SHOW_DELAY of loading.
 	const [barsVisible, setBarsVisible] = useState(false);
@@ -111,7 +111,7 @@ export default function Skeleton<T>({
 			// Only bars that were on screen get a reveal; fast data shows at once.
 			if (barsVisible) {
 				setFading(shapes);
-				setDelays(revealDelays(shapes, theme.reveal, originX, screenWidth));
+				setDelays(revealDelays(shapes, theme.reveal, origin.x, screenWidth));
 			}
 		}
 	}
@@ -145,7 +145,7 @@ export default function Skeleton<T>({
 	function handleLayout() {
 		setLayoutVersion((version) => version + 1);
 		// Where this skeleton sits on screen, so its shimmer lines up with others.
-		rootRef.current?.measureInWindow((x) => setOriginX(x));
+		rootRef.current?.measureInWindow((x, y) => setOrigin({ x, y }));
 	}
 
 	// Loading: the live bars. The canvas mounts as loading starts, hidden until
@@ -174,7 +174,7 @@ export default function Skeleton<T>({
 					revealClock={revealClock}
 					revealDelays={delays}
 					held={isLoading ? {} : held}
-					originX={originX}
+					origin={origin}
 					theme={theme}
 				/>
 			) : null}
