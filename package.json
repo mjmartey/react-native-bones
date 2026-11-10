@@ -1,6 +1,6 @@
 {
 	"name": "react-native-bones",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Skeleton loaders measured from your real React Native UI: render sample data, get matching bones with one synced shimmer.",
 	"license": "MIT",
 	"author": "Scholar",

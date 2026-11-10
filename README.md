@@ -13,8 +13,6 @@ There is no second "skeleton version" of a screen to draw by hand, and no box si
 - **Accessible.** Busy state and a label for screen readers, and still bars with instant reveals under Reduce Motion.
 - **No native code of its own.** Pure TypeScript on top of Reanimated and Skia. Works in Expo Go.
 
-> **Status:** in development, not published yet.
-
 ## Install
 
 ```sh
