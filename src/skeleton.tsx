@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, type ViewInstance } from "react-native";
-import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
+import type { HostInstance } from "react-native";
+import Animated, {
+	Easing,
+	LinearTransition,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 import { REVEAL_FINISHED } from "./animation/reveal";
 import BonesCanvas from "./components/bones-canvas";
-import { SHOW_DELAY } from "./constants";
+import { RESIZE_DURATION, SHOW_DELAY } from "./constants";
 import {
 	type HeldBone,
 	SkeletonContext,
@@ -16,6 +21,11 @@ import { sameShapes } from "./utils/shapes";
 
 export type ShapeMap = Readonly<Record<string, readonly BoneShape[]>>;
 
+/** Size changes (sample → real content) ease instead of snapping. */
+const RESIZE = LinearTransition.duration(RESIZE_DURATION).easing(
+	Easing.bezier(0.2, 0, 0, 1),
+);
+
 export default function Skeleton<T>({
 	data,
 	sample,
@@ -25,7 +35,7 @@ export default function Skeleton<T>({
 }: SkeletonProps<T>) {
 	const isLoading = loading || data == null;
 	const theme = useBonesTheme();
-	const rootRef = useRef<ViewInstance>(null);
+	const rootRef = useRef<HostInstance>(null);
 	const [layoutVersion, setLayoutVersion] = useState(0);
 	const [origin, setOrigin] = useState({ x: 0, y: 0 });
 	const [shapes, setShapeMap] = useState<ShapeMap>({});
@@ -157,8 +167,9 @@ export default function Skeleton<T>({
 	const content = !isLoading && data != null ? data : sample;
 
 	return (
-		<View
+		<Animated.View
 			ref={rootRef}
+			layout={RESIZE}
 			collapsable={false}
 			style={style}
 			onLayout={handleLayout}
@@ -176,6 +187,6 @@ export default function Skeleton<T>({
 					theme={theme}
 				/>
 			) : null}
-		</View>
+		</Animated.View>
 	);
 }

@@ -1,5 +1,5 @@
 /** Corner radius for bars when the measured element doesn't set its own. */
-export const DEFAULT_RADIUS = 6;
+export const DEFAULT_RADIUS = 4;
 
 /**
  * A font's natural text height is about 1.7x its cap height for typical UI
@@ -61,3 +61,10 @@ export const APPEAR_DURATION = 200;
  */
 export const SWEEP_EDGE = 80;
 export const SWEEP_SPEED = 1400;
+
+/**
+ * When real content is taller or shorter than the sample, the skeleton's
+ * height eases to the new size over this long instead of snapping (as
+ * Skullet does, with cubic-bezier(0.2, 0, 0, 1)).
+ */
+export const RESIZE_DURATION = 280;

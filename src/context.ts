@@ -1,5 +1,5 @@
 import { createContext, type RefObject, useContext } from "react";
-import type { ViewInstance } from "react-native";
+import type { HostInstance } from "react-native";
 import type { DerivedValue, SharedValue } from "react-native-reanimated";
 import type { BoneShape } from "./types";
 import type { RevealPlan } from "./utils/reveal-order";
@@ -18,7 +18,7 @@ export type SkeletonContextValue = {
 	/** True while loading: primitives hide their content and report shapes. */
 	measuring: boolean;
 	/** The `<Skeleton>` root; every shape is measured relative to it. */
-	rootRef: RefObject<ViewInstance | null>;
+	rootRef: RefObject<HostInstance | null>;
 	/** Changes when the root's layout changes, so primitives re-measure. */
 	layoutVersion: number;
 	radius: number;
