@@ -10,8 +10,8 @@ export const TEXT_HEIGHT_PER_CAP_HEIGHT = 1.7;
 
 /** Default bar colours per colour scheme; override them with `BonesProvider`. */
 export const DEFAULT_COLORS = {
-	light: { base: "#E4E7EC", highlight: "#F5F6F8" },
-	dark: { base: "#2A2F37", highlight: "#3A414C" },
+	light: { base: "#E4E7EC", highlight: "#FCFCFD" },
+	dark: { base: "#2A2F37", highlight: "#4B5361" },
 } as const;
 
 /** One full pulse (bright → dim → bright), in milliseconds. */
@@ -31,7 +31,7 @@ export const SHIMMER_RISE = 0.34;
 export const SHIMMER_FALL = 0.1;
 
 /** Time for the bands to move on by one repeat, in milliseconds. */
-export const SHIMMER_DURATION = 2400;
+export const SHIMMER_DURATION = 1800;
 
 /**
  * Wait this long before showing bars. Data that arrives sooner (a cache hit,
@@ -40,7 +40,7 @@ export const SHIMMER_DURATION = 2400;
 export const SHOW_DELAY = 150;
 
 /** How long the bars take to fade out over the real content. */
-export const REVEAL_DURATION = 240;
+export const REVEAL_DURATION = 200;
 
 /** Extra time the last piece waits in `sequence` and `sweep` reveals. */
 export const REVEAL_SPREAD = 240;
@@ -53,3 +53,11 @@ export const SMART_SEQUENCE_ROWS = 4;
 
 /** How long the skeleton takes to fade in when it first appears. */
 export const APPEAR_DURATION = 200;
+
+/**
+ * Sweep reveal, after Skullet's homepage: a soft edge (SWEEP_EDGE points
+ * wide, at the shimmer's angle) wipes the skeleton away at SWEEP_SPEED
+ * points per second, uncovering the content behind it.
+ */
+export const SWEEP_EDGE = 80;
+export const SWEEP_SPEED = 1400;

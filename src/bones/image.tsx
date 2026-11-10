@@ -56,12 +56,13 @@ function SkeletonImage({
 		setShapes,
 		setHeld,
 		revealClock,
-		revealDelays,
+		revealPlan,
 	} = skeleton;
 	const id = useId();
 	const ref = useRef<HostInstance>(null);
 	const lastShapes = useRef<readonly BoneShape[]>([]);
-	const delay = revealDelays[id] ?? 0;
+	const delay = revealPlan.delays[id] ?? 0;
+	const { fade } = revealPlan;
 
 	// 0 → 1 as the image arrives. No source means nothing to wait for.
 	const hasSource = hasImage(source);
@@ -83,10 +84,10 @@ function SkeletonImage({
 		"worklet";
 		if (measuring) return 0;
 		return Math.min(
-			contentProgress(revealClock.get(), delay),
+			contentProgress(revealClock.get(), delay, fade),
 			imageProgress.get(),
 		);
-	}, [measuring, revealClock, delay, imageProgress]);
+	}, [measuring, revealClock, delay, fade, imageProgress]);
 	const revealStyle = useAnimatedStyle(() => {
 		"worklet";
 		return { opacity: contentOpacity.get() };

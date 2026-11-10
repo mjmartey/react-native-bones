@@ -1,26 +1,56 @@
-import { REVEAL_SPREAD, SMART_SEQUENCE_ROWS } from "../constants";
+import {
+	REVEAL_DURATION,
+	REVEAL_SPREAD,
+	SMART_SEQUENCE_ROWS,
+	SWEEP_EDGE,
+	SWEEP_SPEED,
+} from "../constants";
 import type { ShapeMap } from "../skeleton";
 import type { BonesReveal } from "../types";
+import { SHIMMER_DIRECTION } from "./shimmer";
 
-export type RevealDelays = Readonly<Record<string, number>>;
+/** Everything a reveal needs, worked out once as it starts. */
+export type RevealPlan = Readonly<{
+	/** When each piece (by id) starts fading in, in ms. Missing means 0. */
+	delays: Readonly<Record<string, number>>;
+	/** How long one piece takes to fade in, in ms. */
+	fade: number;
+	/** How long the whole reveal takes, in ms. */
+	total: number;
+	/**
+	 * Sweep only: where the wipe starts, as a distance along the shimmer's
+	 * direction in screen coordinates. `null` for every other mode.
+	 */
+	sweepFrom: number | null;
+}>;
+
+export const EMPTY_PLAN: RevealPlan = {
+	delays: {},
+	fade: REVEAL_DURATION,
+	total: REVEAL_DURATION,
+	sweepFrom: null,
+};
+
+/** Distance of a screen point along the shimmer's 110° direction. */
+function along(x: number, y: number): number {
+	return x * SHIMMER_DIRECTION.x + y * SHIMMER_DIRECTION.y;
+}
 
 /**
- * When each piece starts its reveal, in ms. A piece's position is the
- * top-left corner of its bars. `sequence` spreads pieces by y (pieces on
- * the same row go together); `sweep` by x on screen, so side-by-side
- * skeletons are uncovered as one surface; `smart` picks `together` or
- * `sequence` from how many rows there are.
+ * Plans a reveal from the bars on screen. A piece's position is the
+ * top-left corner of its bars.
+ * - `together`: every piece at 0.
+ * - `sequence`: spread by y (pieces on the same row go together).
+ * - `sweep`: a soft diagonal edge, at the shimmer's angle, wipes across;
+ *   each piece fades in as the edge reaches it.
+ * - `smart`: `together` for a few rows, `sequence` for more.
  */
-export function revealDelays(
+export function planReveal(
 	groups: ShapeMap,
 	mode: BonesReveal,
-	originX: number,
-	screenWidth: number,
-): RevealDelays {
-	const delays: Record<string, number> = {};
-	if (mode === "together") return delays;
-
-	const corners = Object.entries(groups).flatMap(([id, shapes]) =>
+	origin: Readonly<{ x: number; y: number }>,
+): RevealPlan {
+	const pieces = Object.entries(groups).flatMap(([id, shapes]) =>
 		shapes.length === 0
 			? []
 			: [
@@ -28,34 +58,55 @@ export function revealDelays(
 						id,
 						x: Math.min(...shapes.map((shape) => shape.x)),
 						y: Math.min(...shapes.map((shape) => shape.y)),
+						right: Math.max(...shapes.map((shape) => shape.x + shape.width)),
+						bottom: Math.max(...shapes.map((shape) => shape.y + shape.height)),
 					},
 				],
 	);
+	if (pieces.length === 0 || mode === "together") return EMPTY_PLAN;
+
+	if (mode === "sweep") {
+		// The direction points right and down, so a piece's top-left corner is
+		// the first part the edge reaches, and its bottom-right the last.
+		const starts = pieces.map((piece) => ({
+			id: piece.id,
+			at: along(origin.x + piece.x, origin.y + piece.y),
+		}));
+		const from = Math.min(...starts.map((start) => start.at));
+		const to = Math.max(
+			...pieces.map((piece) =>
+				along(origin.x + piece.right, origin.y + piece.bottom),
+			),
+		);
+		const msPerPoint = 1000 / SWEEP_SPEED;
+		const delays: Record<string, number> = {};
+		for (const { id, at } of starts) delays[id] = (at - from) * msPerPoint;
+		return {
+			delays,
+			fade: SWEEP_EDGE * msPerPoint,
+			total: (to - from + SWEEP_EDGE) * msPerPoint,
+			sweepFrom: from,
+		};
+	}
 
 	// Smart: a few rows crossfade together; more rows play a sequence.
 	// (Data that beat SHOW_DELAY never gets here: it shows with no reveal.)
 	if (mode === "smart") {
-		const rows = new Set(corners.map((corner) => Math.round(corner.y)));
-		if (rows.size < SMART_SEQUENCE_ROWS) return delays;
+		const rows = new Set(pieces.map((piece) => Math.round(piece.y)));
+		if (rows.size < SMART_SEQUENCE_ROWS) return EMPTY_PLAN;
 	}
 
-	if (mode === "sweep") {
-		for (const { id, x } of corners) {
-			const onScreen = Math.min(Math.max((originX + x) / screenWidth, 0), 1);
-			delays[id] = onScreen * REVEAL_SPREAD;
-		}
-		return delays;
-	}
-
-	const ys = corners.map((corner) => corner.y);
+	const ys = pieces.map((piece) => piece.y);
 	const top = Math.min(...ys);
 	const range = Math.max(...ys) - top;
-	for (const { id, y } of corners) {
+	const delays: Record<string, number> = {};
+	for (const { id, y } of pieces) {
 		delays[id] = range > 0 ? ((y - top) / range) * REVEAL_SPREAD : 0;
 	}
-	return delays;
-}
-
-export function longestDelay(delays: RevealDelays): number {
-	return Math.max(0, ...Object.values(delays));
+	return {
+		delays,
+		fade: REVEAL_DURATION,
+		total: REVEAL_SPREAD + REVEAL_DURATION,
+		sweepFrom: null,
+	};
 }

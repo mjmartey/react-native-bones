@@ -2,7 +2,7 @@ import { createContext, type RefObject, useContext } from "react";
 import type { ViewInstance } from "react-native";
 import type { DerivedValue, SharedValue } from "react-native-reanimated";
 import type { BoneShape } from "./types";
-import type { RevealDelays } from "./utils/reveal-order";
+import type { RevealPlan } from "./utils/reveal-order";
 
 /**
  * A bar kept on screen after loading by a piece that isn't ready yet (an
@@ -26,8 +26,8 @@ export type SkeletonContextValue = {
 	setShapes: (id: string, shapes: readonly BoneShape[] | null) => void;
 	/** Milliseconds into the current reveal; every piece fades from it. */
 	revealClock: SharedValue<number>;
-	/** When each piece (by id) starts its reveal, in ms. Missing means 0. */
-	revealDelays: RevealDelays;
+	/** Delays, fade and timing of the current reveal. */
+	revealPlan: RevealPlan;
 	/** Keep this piece's bar after loading, or `null` to drop it. */
 	setHeld: (id: string, held: HeldBone | null) => void;
 };

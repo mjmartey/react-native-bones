@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useWindowDimensions, View, type ViewInstance } from "react-native";
+import { View, type ViewInstance } from "react-native";
 import { Easing, useSharedValue, withTiming } from "react-native-reanimated";
 import { REVEAL_FINISHED } from "./animation/reveal";
 import BonesCanvas from "./components/bones-canvas";
-import { REVEAL_DURATION, SHOW_DELAY } from "./constants";
+import { SHOW_DELAY } from "./constants";
 import {
 	type HeldBone,
 	SkeletonContext,
@@ -11,11 +11,7 @@ import {
 } from "./context";
 import { useBonesTheme } from "./theme";
 import type { BoneShape, SkeletonProps } from "./types";
-import {
-	longestDelay,
-	type RevealDelays,
-	revealDelays,
-} from "./utils/reveal-order";
+import { EMPTY_PLAN, planReveal, type RevealPlan } from "./utils/reveal-order";
 import { sameShapes } from "./utils/shapes";
 
 export type ShapeMap = Readonly<Record<string, readonly BoneShape[]>>;
@@ -38,8 +34,7 @@ export default function Skeleton<T>({
 	// While revealing: the last bars per piece, kept on screen as they fade.
 	const [fading, setFading] = useState<ShapeMap | null>(null);
 	// When each piece starts its reveal (empty for `together`: all at 0).
-	const [delays, setDelays] = useState<RevealDelays>({});
-	const { width: screenWidth } = useWindowDimensions();
+	const [plan, setPlan] = useState<RevealPlan>(EMPTY_PLAN);
 	// Bars kept after loading by pieces that aren't ready (images).
 	const [held, setHeldMap] = useState<Readonly<Record<string, HeldBone>>>({});
 
@@ -81,7 +76,7 @@ export default function Skeleton<T>({
 			radius: theme.radius,
 			setShapes,
 			revealClock,
-			revealDelays: delays,
+			revealPlan: plan,
 			setHeld,
 		}),
 		[
@@ -90,7 +85,7 @@ export default function Skeleton<T>({
 			theme.radius,
 			setShapes,
 			revealClock,
-			delays,
+			plan,
 			setHeld,
 		],
 	);
@@ -104,14 +99,14 @@ export default function Skeleton<T>({
 		setWasLoading(isLoading);
 		if (isLoading) {
 			setFading(null);
-			setDelays({});
+			setPlan(EMPTY_PLAN);
 		} else {
 			setBarsVisible(false);
 			setShapeMap({});
 			// Only bars that were on screen get a reveal; fast data shows at once.
 			if (barsVisible) {
 				setFading(shapes);
-				setDelays(revealDelays(shapes, theme.reveal, origin.x, screenWidth));
+				setPlan(planReveal(shapes, theme.reveal, origin));
 			}
 		}
 	}
@@ -133,10 +128,13 @@ export default function Skeleton<T>({
 
 		// Each piece's content fades in while its bars fade out, both reading
 		// this clock from that piece's delay (all 0 for `together`).
-		const total = longestDelay(delays) + REVEAL_DURATION;
+		const { total } = plan;
 		revealClock.set(0);
 		revealClock.set(
-			withTiming(total, { duration: total, easing: Easing.linear }),
+			withTiming(total, {
+				duration: total,
+				easing: Easing.linear,
+			}),
 		);
 		const timer = setTimeout(() => setFading(null), total);
 		return () => clearTimeout(timer);
@@ -172,7 +170,7 @@ export default function Skeleton<T>({
 					visible={!isLoading || barsVisible}
 					fading={!isLoading}
 					revealClock={revealClock}
-					revealDelays={delays}
+					revealPlan={plan}
 					held={isLoading ? {} : held}
 					origin={origin}
 					theme={theme}

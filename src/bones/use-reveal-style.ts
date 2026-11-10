@@ -7,14 +7,15 @@ import type { SkeletonContextValue } from "../context";
  * in on the reveal clock (after its own delay), as its bars fade out.
  */
 export function useRevealStyle(
-	{ measuring, revealClock, revealDelays }: SkeletonContextValue,
+	{ measuring, revealClock, revealPlan }: SkeletonContextValue,
 	id: string,
 ) {
-	const delay = revealDelays[id] ?? 0;
+	const delay = revealPlan.delays[id] ?? 0;
+	const { fade } = revealPlan;
 	return useAnimatedStyle(() => {
 		"worklet";
 		return {
-			opacity: measuring ? 0 : contentProgress(revealClock.get(), delay),
+			opacity: measuring ? 0 : contentProgress(revealClock.get(), delay, fade),
 		};
-	}, [measuring, revealClock, delay]);
+	}, [measuring, revealClock, delay, fade]);
 }

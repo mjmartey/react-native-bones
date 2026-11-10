@@ -2,7 +2,9 @@ import {
 	Canvas,
 	Group,
 	LinearGradient,
+	Mask,
 	Path,
+	Rect,
 	type SkColor,
 	Skia,
 } from "@shopify/react-native-skia";
@@ -22,15 +24,24 @@ import {
 	PULSE_DURATION,
 	SHIMMER_DURATION,
 	SHIMMER_PERIOD,
+	SWEEP_EDGE,
+	SWEEP_SPEED,
 } from "../constants";
+
 import type { HeldBone } from "../context";
 import type { ShapeMap } from "../skeleton";
 import type { BoneShape, BonesTheme } from "../types";
-import type { RevealDelays } from "../utils/reveal-order";
+import type { RevealPlan } from "../utils/reveal-order";
 import { SHIMMER_DIRECTION, shimmerStops } from "../utils/shimmer";
 
 /** Lowest opacity of the pulse animation (it breathes between this and 1). */
 const PULSE_MIN_OPACITY = 0.5;
+
+/** The sweep mask's edge: transparent (wiped) to opaque (still skeleton). */
+const SWEEP_MASK_COLORS = ["transparent", "black"];
+
+/** Half-size of the sweep mask's rectangle; far beyond any screen. */
+const MASK_REACH = 10000;
 
 type Point = { x: number; y: number };
 
@@ -45,7 +56,7 @@ export default function BonesCanvas({
 	visible,
 	fading,
 	revealClock,
-	revealDelays,
+	revealPlan,
 	held,
 	origin,
 	theme,
@@ -55,7 +66,7 @@ export default function BonesCanvas({
 	visible: boolean;
 	fading: boolean;
 	revealClock: SharedValue<number>;
-	revealDelays: RevealDelays;
+	revealPlan: RevealPlan;
 	held: Readonly<Record<string, HeldBone>>;
 	/** Where this skeleton sits on screen. */
 	origin: Point;
@@ -105,7 +116,10 @@ export default function BonesCanvas({
 	useEffect(() => {
 		appear.set(
 			visible
-				? withTiming(1, { duration: APPEAR_DURATION, easing: CSS_EASE })
+				? withTiming(1, {
+						duration: APPEAR_DURATION,
+						easing: CSS_EASE,
+					})
 				: 0,
 		);
 	}, [visible, appear]);
@@ -114,24 +128,71 @@ export default function BonesCanvas({
 		return appear.get() * (animation === "pulse" ? pulse.get() : 1);
 	}, [appear, pulse, animation]);
 
+	// Sweep: a soft edge at the shimmer's angle wipes the bars away, from
+	// the plan's start point at SWEEP_SPEED. In the mask, transparent is
+	// "already wiped" (behind the edge) and opaque is "still skeleton".
+	const { sweepFrom, fade } = revealPlan;
+	const sweeping = fading && sweepFrom !== null;
+	const edgeStart = useDerivedValue(() => {
+		"worklet";
+		const edge =
+			(sweepFrom ?? 0) - SWEEP_EDGE + (revealClock.get() * SWEEP_SPEED) / 1000;
+		return {
+			x: SHIMMER_DIRECTION.x * edge - origin.x,
+			y: SHIMMER_DIRECTION.y * edge - origin.y,
+		};
+	}, [sweepFrom, revealClock, origin.x, origin.y]);
+	const edgeEnd = useDerivedValue(() => {
+		"worklet";
+		const from = edgeStart.get();
+		return {
+			x: from.x + SHIMMER_DIRECTION.x * SWEEP_EDGE,
+			y: from.y + SHIMMER_DIRECTION.y * SWEEP_EDGE,
+		};
+	}, [edgeStart]);
+
+	const pieces = Object.entries(groups)
+		.filter(([id]) => !(id in held))
+		.map(([id, shapes]) => (
+			<BoneGroup
+				key={id}
+				shapes={shapes}
+				color={colors.base}
+				gradient={animation === "shimmer" ? { start, end, ...stops } : null}
+				// While sweeping, the mask removes the bars instead of a fade.
+				fading={fading && !sweeping}
+				revealClock={revealClock}
+				delay={revealPlan.delays[id] ?? 0}
+				fade={fade}
+			/>
+		));
+
 	return (
 		<Canvas style={styles.canvas}>
 			<Group opacity={groupOpacity}>
-				{Object.entries(groups)
-					.filter(([id]) => !(id in held))
-					.map(([id, shapes]) => (
-						<BoneGroup
-							key={id}
-							shapes={shapes}
-							color={colors.base}
-							gradient={
-								animation === "shimmer" ? { start, end, ...stops } : null
-							}
-							fading={fading}
-							revealClock={revealClock}
-							delay={revealDelays[id] ?? 0}
-						/>
-					))}
+				{sweeping ? (
+					<Mask
+						mode="alpha"
+						mask={
+							<Rect
+								x={-MASK_REACH}
+								y={-MASK_REACH}
+								width={2 * MASK_REACH}
+								height={2 * MASK_REACH}
+							>
+								<LinearGradient
+									start={edgeStart}
+									end={edgeEnd}
+									colors={SWEEP_MASK_COLORS}
+								/>
+							</Rect>
+						}
+					>
+						{pieces}
+					</Mask>
+				) : (
+					pieces
+				)}
 				{Object.entries(held).map(([id, { shapes, contentOpacity }]) => (
 					<BoneGroup
 						key={`held:${id}`}
@@ -141,6 +202,7 @@ export default function BonesCanvas({
 						fading={false}
 						revealClock={revealClock}
 						delay={0}
+						fade={fade}
 						contentOpacity={contentOpacity}
 					/>
 				))}
@@ -157,6 +219,7 @@ function BoneGroup({
 	fading,
 	revealClock,
 	delay,
+	fade,
 	contentOpacity,
 }: Readonly<{
 	shapes: readonly BoneShape[];
@@ -170,6 +233,7 @@ function BoneGroup({
 	fading: boolean;
 	revealClock: SharedValue<number>;
 	delay: number;
+	fade: number;
 	/** A held bar fades as its piece appears: opacity is 1 minus this. */
 	contentOpacity?: DerivedValue<number>;
 }>) {
@@ -190,8 +254,8 @@ function BoneGroup({
 	const opacity = useDerivedValue(() => {
 		"worklet";
 		if (contentOpacity) return 1 - contentOpacity.get();
-		return fading ? boneOpacity(revealClock.get(), delay) : 1;
-	}, [fading, revealClock, delay, contentOpacity]);
+		return fading ? boneOpacity(revealClock.get(), delay, fade) : 1;
+	}, [fading, revealClock, delay, fade, contentOpacity]);
 
 	return (
 		<Path path={path} color={color} opacity={opacity}>

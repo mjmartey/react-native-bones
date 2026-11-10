@@ -70,12 +70,20 @@ function useFakeFetch<T>(value: T, delay: number) {
 	return data;
 }
 
-// Fake network speeds: a cache hit, a fast network, a slow one.
-const DELAYS = [100, 500, 2000];
+// Fake network speeds: a cache hit (beats the 150 ms wait, so no skeleton),
+// a fast network and a slow one.
+const NETWORK = [
+	{ value: 100, label: "cached" },
+	{ value: 500, label: "fast" },
+	{ value: 2000, label: "slow" },
+];
 
 const REVEALS: BonesReveal[] = ["smart", "together", "sequence", "sweep"];
 
 const ANIMATIONS: BonesAnimation[] = ["shimmer", "pulse", "none"];
+
+const toOptions = <T extends string>(values: readonly T[]) =>
+	values.map((value) => ({ value, label: value }));
 
 export default function App() {
 	const [reloadKey, setReloadKey] = useState(0);
@@ -85,6 +93,7 @@ export default function App() {
 	const [dark, setDark] = useState(false);
 	const [reveal, setReveal] = useState<BonesReveal>("smart");
 	const c = dark ? DARK : LIGHT;
+	const reload = () => setReloadKey((k) => k + 1);
 
 	return (
 		<BonesProvider
@@ -97,96 +106,44 @@ export default function App() {
 			>
 				<Text style={[styles.title, { color: c.text }]}>Bones Playground</Text>
 
-				<View style={styles.controls}>
-					<View style={styles.control}>
-						<Switch value={holdLoading} onValueChange={setHoldLoading} />
-						<Text style={{ color: c.text }}>Hold loading</Text>
+				<View style={[styles.settings, { backgroundColor: c.card }]}>
+					<Segmented
+						label="Reveal"
+						options={toOptions(REVEALS)}
+						value={reveal}
+						onChange={setReveal}
+						colors={c}
+					/>
+					<Segmented
+						label="Shimmer"
+						options={toOptions(ANIMATIONS)}
+						value={animation}
+						onChange={setAnimation}
+						colors={c}
+					/>
+					<Segmented
+						label="Network"
+						options={NETWORK}
+						value={delay}
+						onChange={(ms) => {
+							setDelay(ms);
+							reload();
+						}}
+						colors={c}
+					/>
+
+					<View style={[styles.footer, { borderTopColor: c.border }]}>
+						<Toggle label="Dark" value={dark} onChange={setDark} colors={c} />
+						<Toggle
+							label="Hold"
+							value={holdLoading}
+							onChange={setHoldLoading}
+							colors={c}
+						/>
+						<Pressable style={styles.button} onPress={reload}>
+							<Text style={styles.buttonText}>Reload</Text>
+						</Pressable>
 					</View>
-					<View style={styles.control}>
-						<Switch value={dark} onValueChange={setDark} />
-						<Text style={{ color: c.text }}>Dark</Text>
-					</View>
-					<Pressable
-						style={styles.button}
-						onPress={() => setReloadKey((k) => k + 1)}
-					>
-						<Text style={styles.buttonText}>Reload</Text>
-					</Pressable>
-				</View>
-
-				<View style={styles.segments}>
-					{DELAYS.map((ms) => (
-						<Pressable
-							key={ms}
-							onPress={() => {
-								setDelay(ms);
-								setReloadKey((k) => k + 1);
-							}}
-							style={[
-								styles.segment,
-								{ borderColor: c.border },
-								delay === ms && styles.segmentActive,
-							]}
-						>
-							<Text
-								style={[
-									styles.segmentText,
-									{ color: delay === ms ? "white" : c.text },
-								]}
-							>
-								{ms < 1000 ? `${ms} ms` : `${ms / 1000} s`}
-							</Text>
-						</Pressable>
-					))}
-				</View>
-				<Text style={[styles.caption, { color: c.body }]}>
-					Bars show after 150 ms. Faster data appears without a skeleton.
-				</Text>
-
-				<View style={styles.segments}>
-					{ANIMATIONS.map((name) => (
-						<Pressable
-							key={name}
-							onPress={() => setAnimation(name)}
-							style={[
-								styles.segment,
-								{ borderColor: c.border },
-								animation === name && styles.segmentActive,
-							]}
-						>
-							<Text
-								style={[
-									styles.segmentText,
-									{ color: animation === name ? "white" : c.text },
-								]}
-							>
-								{name}
-							</Text>
-						</Pressable>
-					))}
-				</View>
-
-				<View style={styles.segments}>
-					{REVEALS.map((name) => (
-						<Pressable
-							key={name}
-							onPress={() => setReveal(name)}
-							style={[
-								styles.segment,
-								{ borderColor: c.border },
-								reveal === name && styles.segmentActive,
-							]}
-						>
-							<Text
-								style={[
-									styles.segmentText,
-									{ color: reveal === name ? "white" : c.text },
-								]}
-							>
-								{name}
-							</Text>
-						</Pressable>
-					))}
 				</View>
 
 				{/* A new key remounts Cards, so the fake fetch starts over. */}
@@ -198,6 +155,68 @@ export default function App() {
 				/>
 			</ScrollView>
 		</BonesProvider>
+	);
+}
+
+/** One labelled row of choices, e.g. "Reveal  smart · together · …". */
+function Segmented<T extends string | number>({
+	label,
+	options,
+	value,
+	onChange,
+	colors: c,
+}: Readonly<{
+	label: string;
+	options: readonly { value: T; label: string }[];
+	value: T;
+	onChange: (value: T) => void;
+	colors: Palette;
+}>) {
+	return (
+		<View style={styles.settingRow}>
+			<Text style={[styles.rowLabel, { color: c.muted }]}>{label}</Text>
+			<View style={[styles.track, { backgroundColor: c.track }]}>
+				{options.map((option) => {
+					const active = option.value === value;
+					return (
+						<Pressable
+							key={option.label}
+							onPress={() => onChange(option.value)}
+							style={[styles.segment, active && styles.segmentActive]}
+						>
+							<Text
+								numberOfLines={1}
+								style={[
+									styles.segmentText,
+									{ color: active ? "white" : c.text },
+								]}
+							>
+								{option.label}
+							</Text>
+						</Pressable>
+					);
+				})}
+			</View>
+		</View>
+	);
+}
+
+function Toggle({
+	label,
+	value,
+	onChange,
+	colors: c,
+}: Readonly<{
+	label: string;
+	value: boolean;
+	onChange: (value: boolean) => void;
+	colors: Palette;
+}>) {
+	return (
+		<View style={styles.toggle}>
+			<Switch value={value} onValueChange={onChange} style={styles.switch} />
+			<Text style={[styles.toggleText, { color: c.text }]}>{label}</Text>
+		</View>
 	);
 }
 
@@ -307,6 +326,8 @@ type Palette = {
 	text: string;
 	body: string;
 	border: string;
+	muted: string;
+	track: string;
 };
 
 const LIGHT: Palette = {
@@ -314,7 +335,9 @@ const LIGHT: Palette = {
 	card: "#FFFFFF",
 	text: "#101828",
 	body: "#344054",
-	border: "#D0D5DD",
+	border: "#EAECF0",
+	muted: "#667085",
+	track: "#F2F4F7",
 };
 
 const DARK: Palette = {
@@ -323,20 +346,39 @@ const DARK: Palette = {
 	text: "#F5F5F6",
 	body: "#CECFD2",
 	border: "#333741",
+	muted: "#94969C",
+	track: "#1F242F",
 };
 
 const styles = StyleSheet.create({
-	segments: { flexDirection: "row", gap: 8 },
+	settings: { borderRadius: 16, padding: 12, gap: 10 },
+	settingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+	rowLabel: {
+		width: 62,
+		fontSize: 11,
+		fontWeight: "600",
+		textTransform: "uppercase",
+		letterSpacing: 0.4,
+	},
+	track: { flex: 1, flexDirection: "row", borderRadius: 8, padding: 2 },
 	segment: {
 		flex: 1,
 		alignItems: "center",
-		paddingVertical: 8,
-		borderRadius: 8,
-		borderWidth: 1,
+		paddingVertical: 6,
+		borderRadius: 6,
 	},
-	segmentActive: { backgroundColor: "#2E90FA", borderColor: "#2E90FA" },
-	segmentText: { fontWeight: "600" },
-	caption: { fontSize: 13, marginTop: -4 },
+	segmentActive: { backgroundColor: "#2E90FA" },
+	segmentText: { fontSize: 12, fontWeight: "600" },
+	footer: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 16,
+		paddingTop: 10,
+		borderTopWidth: StyleSheet.hairlineWidth,
+	},
+	toggle: { flexDirection: "row", alignItems: "center", gap: 6 },
+	switch: { transform: [{ scale: 0.8 }] },
+	toggleText: { fontSize: 13, fontWeight: "500" },
 	screen: {
 		padding: 20,
 		paddingTop: 72,
@@ -345,13 +387,8 @@ const styles = StyleSheet.create({
 		flexGrow: 1,
 	},
 	title: { fontSize: 24, fontWeight: "700" },
-	controls: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-	},
-	control: { flexDirection: "row", alignItems: "center", gap: 8 },
 	button: {
+		marginLeft: "auto",
 		backgroundColor: "#101828",
 		paddingHorizontal: 16,
 		paddingVertical: 8,
