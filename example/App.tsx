@@ -238,6 +238,7 @@ function Cards({
 			<Skeleton
 				data={agent}
 				sample={SAMPLE_AGENT}
+				label="Loading profile"
 				loading={holdLoading}
 				style={[styles.card, { backgroundColor: c.card }]}
 			>
@@ -274,6 +275,7 @@ function Cards({
 			<Skeleton
 				data={photo}
 				sample={SAMPLE_PHOTO}
+				label="Loading photo"
 				loading={holdLoading}
 				style={[styles.card, { backgroundColor: c.card }]}
 			>
@@ -300,6 +302,7 @@ function Cards({
 			<Skeleton
 				data={rows}
 				sample={SAMPLE_ROWS}
+				label="Loading payments"
 				loading={holdLoading}
 				style={[styles.card, { backgroundColor: c.card }]}
 			>

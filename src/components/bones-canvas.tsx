@@ -60,6 +60,7 @@ export default function BonesCanvas({
 	held,
 	origin,
 	theme,
+	reducedMotion,
 }: Readonly<{
 	groups: ShapeMap;
 	/** False while loading but before SHOW_DELAY: mounted, not shown. */
@@ -71,8 +72,11 @@ export default function BonesCanvas({
 	/** Where this skeleton sits on screen. */
 	origin: Point;
 	theme: BonesTheme;
+	/** Still bars and no fade-in, for the phone's reduced-motion setting. */
+	reducedMotion: boolean;
 }>) {
-	const { colors, animation } = theme;
+	const { colors } = theme;
+	const animation = reducedMotion ? "none" : theme.animation;
 	const time = useAnimationTime(animation !== "none");
 
 	const stops = useMemo(
@@ -116,13 +120,12 @@ export default function BonesCanvas({
 	useEffect(() => {
 		appear.set(
 			visible
-				? withTiming(1, {
-						duration: APPEAR_DURATION,
-						easing: CSS_EASE,
-					})
+				? reducedMotion
+					? 1
+					: withTiming(1, { duration: APPEAR_DURATION, easing: CSS_EASE })
 				: 0,
 		);
-	}, [visible, appear]);
+	}, [visible, appear, reducedMotion]);
 	const groupOpacity = useDerivedValue(() => {
 		"worklet";
 		return appear.get() * (animation === "pulse" ? pulse.get() : 1);
@@ -168,7 +171,13 @@ export default function BonesCanvas({
 		));
 
 	return (
-		<Canvas style={styles.canvas}>
+		<Canvas
+			style={styles.canvas}
+			// Bars are decoration: never read out or focusable.
+			accessible={false}
+			accessibilityElementsHidden
+			importantForAccessibility="no-hide-descendants"
+		>
 			<Group opacity={groupOpacity}>
 				{sweeping ? (
 					<Mask

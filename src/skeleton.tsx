@@ -3,6 +3,7 @@ import type { HostInstance } from "react-native";
 import Animated, {
 	Easing,
 	LinearTransition,
+	useReducedMotion,
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
@@ -32,7 +33,11 @@ export default function Skeleton<T>({
 	loading = false,
 	children,
 	style,
+	label = "Loading",
+	onReveal,
 }: SkeletonProps<T>) {
+	// The phone's "Reduce Motion" setting: still bars, instant reveals.
+	const reducedMotion = useReducedMotion();
 	const isLoading = loading || data == null;
 	const theme = useBonesTheme();
 	const rootRef = useRef<HostInstance>(null);
@@ -105,16 +110,21 @@ export default function Skeleton<T>({
 	// screen already has it: no frame without bars, no canvas remount.
 	// (React's "storing information from previous renders" pattern.)
 	const [wasLoading, setWasLoading] = useState(isLoading);
+	// Whether the content that just arrived replaced bars on screen.
+	const [overSkeleton, setOverSkeleton] = useState(false);
 	if (wasLoading !== isLoading) {
 		setWasLoading(isLoading);
 		if (isLoading) {
 			setFading(null);
 			setPlan(EMPTY_PLAN);
+			setOverSkeleton(false);
 		} else {
 			setBarsVisible(false);
 			setShapeMap({});
-			// Only bars that were on screen get a reveal; fast data shows at once.
-			if (barsVisible) {
+			setOverSkeleton(barsVisible);
+			// Only bars that were on screen get a reveal; fast data shows at
+			// once, and so does everything under reduced motion.
+			if (barsVisible && !reducedMotion) {
 				setFading(shapes);
 				setPlan(planReveal(shapes, theme.reveal, origin));
 			}
@@ -133,6 +143,7 @@ export default function Skeleton<T>({
 
 		if (!fading) {
 			revealClock.set(REVEAL_FINISHED);
+			if (overSkeleton) onReveal?.();
 			return;
 		}
 
@@ -146,7 +157,10 @@ export default function Skeleton<T>({
 				easing: Easing.linear,
 			}),
 		);
-		const timer = setTimeout(() => setFading(null), total);
+		const timer = setTimeout(() => {
+			setFading(null);
+			onReveal?.();
+		}, total);
 		return () => clearTimeout(timer);
 	}, [isLoading]);
 
@@ -169,10 +183,15 @@ export default function Skeleton<T>({
 	return (
 		<Animated.View
 			ref={rootRef}
-			layout={RESIZE}
+			layout={reducedMotion ? undefined : RESIZE}
 			collapsable={false}
 			style={style}
 			onLayout={handleLayout}
+			// While loading, the skeleton is one element: its label is read and
+			// it is marked busy; the hidden sample content is never read out.
+			accessible={isLoading}
+			accessibilityLabel={isLoading ? label : undefined}
+			accessibilityState={isLoading ? { busy: true } : undefined}
 		>
 			<SkeletonContext value={context}>{children(content)}</SkeletonContext>
 			{groups ? (
@@ -185,6 +204,7 @@ export default function Skeleton<T>({
 					held={isLoading ? {} : held}
 					origin={origin}
 					theme={theme}
+					reducedMotion={reducedMotion}
 				/>
 			) : null}
 		</Animated.View>

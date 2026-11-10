@@ -19,6 +19,13 @@ export type SkeletonProps<T> = {
 	loading?: boolean;
 	children: (value: T) => ReactNode;
 	style?: StyleProp<ViewStyle>;
+	/**
+	 * Read to screen readers while loading, in place of the hidden sample
+	 * content. Defaults to "Loading".
+	 */
+	label?: string;
+	/** Called once content has come in over a skeleton (e.g. to move focus). */
+	onReveal?: () => void;
 };
 
 export type BonesAnimation = "shimmer" | "pulse" | "none";

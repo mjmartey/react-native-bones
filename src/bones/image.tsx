@@ -10,6 +10,7 @@ import Animated, {
 	useAnimatedReaction,
 	useAnimatedStyle,
 	useDerivedValue,
+	useReducedMotion,
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
@@ -58,6 +59,7 @@ function SkeletonImage({
 		revealClock,
 		revealPlan,
 	} = skeleton;
+	const reducedMotion = useReducedMotion();
 	const id = useId();
 	const ref = useRef<HostInstance>(null);
 	const lastShapes = useRef<readonly BoneShape[]>([]);
@@ -76,7 +78,9 @@ function SkeletonImage({
 	}, [sourceKey]);
 
 	function handleLoaded() {
-		imageProgress.set(withTiming(1, { duration: REVEAL_DURATION }));
+		imageProgress.set(
+			reducedMotion ? 1 : withTiming(1, { duration: REVEAL_DURATION }),
+		);
 	}
 
 	// The image shows only when both the reveal and the image have arrived.
