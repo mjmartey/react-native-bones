@@ -13,8 +13,10 @@ import { SHIMMER_DIRECTION } from "./shimmer";
 export type RevealPlan = Readonly<{
 	/** When each piece (by id) starts fading in, in ms. Missing means 0. */
 	delays: Readonly<Record<string, number>>;
-	/** How long one piece takes to fade in, in ms. */
+	/** How long a piece takes to fade in, in ms, unless `fades` says otherwise. */
 	fade: number;
+	/** Per-piece fade lengths, in ms (sweep: as long as the edge takes to cross it). */
+	fades: Readonly<Record<string, number>>;
 	/** How long the whole reveal takes, in ms. */
 	total: number;
 	/**
@@ -27,6 +29,7 @@ export type RevealPlan = Readonly<{
 export const EMPTY_PLAN: RevealPlan = {
 	delays: {},
 	fade: REVEAL_DURATION,
+	fades: {},
 	total: REVEAL_DURATION,
 	sweepFrom: null,
 };
@@ -68,22 +71,27 @@ export function planReveal(
 	if (mode === "sweep") {
 		// The direction points right and down, so a piece's top-left corner is
 		// the first part the edge reaches, and its bottom-right the last.
-		const starts = pieces.map((piece) => ({
+		const spans = pieces.map((piece) => ({
 			id: piece.id,
-			at: along(origin.x + piece.x, origin.y + piece.y),
+			start: along(origin.x + piece.x, origin.y + piece.y),
+			end: along(origin.x + piece.right, origin.y + piece.bottom),
 		}));
-		const from = Math.min(...starts.map((start) => start.at));
-		const to = Math.max(
-			...pieces.map((piece) =>
-				along(origin.x + piece.right, origin.y + piece.bottom),
-			),
-		);
+		const from = Math.min(...spans.map((span) => span.start));
+		const to = Math.max(...spans.map((span) => span.end));
 		const msPerPoint = 1000 / SWEEP_SPEED;
 		const delays: Record<string, number> = {};
-		for (const { id, at } of starts) delays[id] = (at - from) * msPerPoint;
+		const fades: Record<string, number> = {};
+		for (const { id, start, end } of spans) {
+			delays[id] = (start - from) * msPerPoint;
+			// Fade across the whole time the edge crosses the piece. Content
+			// can't be masked, so text longer than its bar would otherwise
+			// show ahead of the edge; this way it brightens along with it.
+			fades[id] = (end - start + SWEEP_EDGE) * msPerPoint;
+		}
 		return {
 			delays,
 			fade: SWEEP_EDGE * msPerPoint,
+			fades,
 			total: (to - from + SWEEP_EDGE) * msPerPoint,
 			sweepFrom: from,
 		};
@@ -106,6 +114,7 @@ export function planReveal(
 	return {
 		delays,
 		fade: REVEAL_DURATION,
+		fades: {},
 		total: REVEAL_SPREAD + REVEAL_DURATION,
 		sweepFrom: null,
 	};

@@ -62,7 +62,7 @@ function SkeletonImage({
 	const ref = useRef<HostInstance>(null);
 	const lastShapes = useRef<readonly BoneShape[]>([]);
 	const delay = revealPlan.delays[id] ?? 0;
-	const { fade } = revealPlan;
+	const fade = revealPlan.fades[id] ?? revealPlan.fade;
 
 	// 0 → 1 as the image arrives. No source means nothing to wait for.
 	const hasSource = hasImage(source);

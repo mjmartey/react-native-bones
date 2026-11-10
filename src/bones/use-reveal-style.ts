@@ -11,7 +11,7 @@ export function useRevealStyle(
 	id: string,
 ) {
 	const delay = revealPlan.delays[id] ?? 0;
-	const { fade } = revealPlan;
+	const fade = revealPlan.fades[id] ?? revealPlan.fade;
 	return useAnimatedStyle(() => {
 		"worklet";
 		return {

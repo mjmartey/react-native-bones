@@ -50,3 +50,4 @@ import { BonesProvider, Skeleton, Bones } from "react-native-bones";
 - `<SkeletonSuspense>` for Suspense-based fetching; `<SkeletonBox>` manual bars in the same shimmer.
 - `debug` overlay.
 - `react-native-bones/native`: optional native view-walking mode (approach B) behind its own subpath.
+- `react-native-bones/masked`: optional pixel-exact `sweep` that masks the content itself, using `@react-native-masked-view/masked-view` (included in Expo Go; Android support is experimental). The default sweep fades each piece across the edge's crossing instead.
