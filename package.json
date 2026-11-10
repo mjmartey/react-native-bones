@@ -43,7 +43,10 @@
 		"lint:fix": "biome check --write .",
 		"test": "bun test",
 		"prepare": "bob build",
-		"example": "bun --cwd example start"
+		"example": "bun --cwd example start",
+		"changeset": "changeset",
+		"version-packages": "changeset version",
+		"release": "changeset publish"
 	},
 	"peerDependencies": {
 		"@shopify/react-native-skia": ">=2.0.0",
@@ -54,6 +57,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.6",
+		"@changesets/cli": "^3.0.3",
 		"@shopify/react-native-skia": "2.14.0",
 		"@types/bun": "1.4.4",
 		"@types/react": "~19.3.0",
