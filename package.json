@@ -4,6 +4,14 @@
 	"description": "Skeleton loaders measured from your real React Native UI: render sample data, get matching bones with one synced shimmer.",
 	"license": "MIT",
 	"author": "Scholar",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/mjmartey/react-native-bones.git"
+	},
+	"homepage": "https://github.com/mjmartey/react-native-bones#readme",
+	"bugs": {
+		"url": "https://github.com/mjmartey/react-native-bones/issues"
+	},
 	"keywords": [
 		"react-native",
 		"expo",
